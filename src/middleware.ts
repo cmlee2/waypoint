@@ -1,8 +1,11 @@
-import { type NextRequest } from 'next/server'
-import { clerkMiddleware } from '@clerk/nextjs/server'
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { updateSession } from '@/utils/supabase/middleware'
 
+const isProtectedRoute = createRouteMatcher(['/dashboard(.*)', '/trips(.*)'])
+
 export default clerkMiddleware(async (auth, request) => {
+  if (isProtectedRoute(request)) await auth.protect()
+  
   // Update Supabase session (refreshes the token)
   return await updateSession(request)
 })
@@ -14,7 +17,6 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * Feel free to modify this pattern to include more paths.
      */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     '/(api|trpc)(.*)',
