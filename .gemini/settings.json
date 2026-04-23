@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "supabase": {
+      "httpUrl": "https://mcp.supabase.com/mcp?project_ref=pmyjlrptgzcfzwlvwrmy",
+      "oauth": {
+        "enabled": true,
+        "authorizationUrl": "https://api.supabase.com/queries/v1/oauth/authorize",
+        "tokenUrl": "https://api.supabase.com/queries/v1/oauth/token",
+        "scopes": [
+          "all"
+        ]
+      }
+    }
+  }
+}

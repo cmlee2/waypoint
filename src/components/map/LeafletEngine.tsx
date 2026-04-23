@@ -1,0 +1,73 @@
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
+import { TripMapProps } from '@/types/map';
+import 'leaflet/dist/leaflet.css';
+
+// Dynamically import Leaflet components (no SSR)
+const MapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapContainer), { ssr: false });
+const TileLayer = dynamic(() => import('react-leaflet').then(mod => mod.TileLayer), { ssr: false });
+const Marker = dynamic(() => import('react-leaflet').then(mod => mod.Marker), { ssr: false });
+const ZoomControl = dynamic(() => import('react-leaflet').then(mod => mod.ZoomControl), { ssr: false });
+
+// CartoDB Positron - Minimalist light style
+const TILE_LAYER_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+const ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
+export default function LeafletEngine({ 
+  center, 
+  zoom, 
+  markers, 
+  onMarkerClick,
+  className 
+}: TripMapProps) {
+  const [L, setL] = useState<any>(null);
+
+  useEffect(() => {
+    // Import Leaflet directly for its L object (for icon creation)
+    import('leaflet').then(mod => {
+      setL(mod.default);
+    });
+  }, []);
+
+  if (!L) return <div className={`${className} bg-stone-50 rounded-xl`} />;
+
+  // Create a custom minimalist marker icon
+  const customIcon = L.divIcon({
+    className: 'custom-div-icon',
+    html: `<div class="w-6 h-6 bg-stone-800 rounded-full border-2 border-white shadow-md flex items-center justify-center">
+            <div class="w-2 h-2 bg-white rounded-full"></div>
+           </div>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 24]
+  });
+
+  return (
+    <div className={`${className} overflow-hidden rounded-xl border-2 border-stone-200 shadow-sm relative z-0`}>
+      <MapContainer
+        center={[center.lat, center.lng]}
+        zoom={zoom}
+        zoomControl={false}
+        className="w-full h-full"
+      >
+        <TileLayer
+          url={TILE_LAYER_URL}
+          attribution={ATTRIBUTION}
+        />
+        <ZoomControl position="topright" />
+        
+        {markers.map((marker) => (
+          <Marker 
+            key={marker.id}
+            position={[marker.lat, marker.lng]}
+            icon={customIcon}
+            eventHandlers={{
+              click: () => onMarkerClick?.(marker.id),
+            }}
+          />
+        ))}
+      </MapContainer>
+    </div>
+  );
+}

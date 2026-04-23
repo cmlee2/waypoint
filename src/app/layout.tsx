@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import { ClerkProvider } from "@clerk/nextjs";
+import { ClerkProvider, SignInButton, SignUpButton, Show, UserButton } from "@clerk/nextjs";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -25,8 +25,18 @@ export default function RootLayout({
                 <div className="w-8 h-8 bg-[#d4a373] rounded-full flex items-center justify-center text-white font-bold">W</div>
                 <h1 className="text-xl font-semibold tracking-tight">Waypoint</h1>
               </div>
-              <nav>
-                {/* Auth components will go here */}
+              <nav className="flex items-center gap-4">
+                <Show when="signed-out">
+                  <SignInButton mode="modal">
+                    <button className="text-sm font-medium hover:text-[#accent] transition-colors">Sign In</button>
+                  </SignInButton>
+                  <SignUpButton mode="modal">
+                    <button className="text-sm font-medium bg-[#accent] text-white px-4 py-2 rounded-md hover:opacity-90 transition-opacity">Sign Up</button>
+                  </SignUpButton>
+                </Show>
+                <Show when="signed-in">
+                  <UserButton afterSignOutUrl="/" />
+                </Show>
               </nav>
             </div>
           </header>
