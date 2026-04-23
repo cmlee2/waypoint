@@ -8,6 +8,7 @@ import { Calendar, Lock, Globe, ArrowLeft, Loader2 } from 'lucide-react';
 export default function NewTripPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [photos, setPhotos] = useState<any[]>([]);
   const [tripData, setTripData] = useState({
     name: '',
     description: '',
@@ -17,14 +18,45 @@ export default function NewTripPage() {
   });
 
   const handleCreateTrip = async () => {
-    // This will be connected to our API in the next step
-    console.log('Creating Trip:', tripData);
+    if (!tripData.name) return;
+    
     setIsSubmitting(true);
-    // Simulate API delay for UI feedback
-    setTimeout(() => {
+    
+    try {
+      // Create FormData to send files and metadata
+      const formData = new FormData();
+      formData.append('name', tripData.name);
+      formData.append('description', tripData.description);
+      formData.append('startDate', tripData.startDate);
+      formData.append('endDate', tripData.endDate);
+      formData.append('isPublic', String(tripData.isPublic));
+      
+      // Append each photo with its metadata
+      photos.forEach((photo, index) => {
+        formData.append(`file_${index}`, photo.file);
+        formData.append(`meta_${index}`, JSON.stringify({
+          lat: photo.lat,
+          lng: photo.lng,
+          takenAt: photo.takenAt,
+          caption: photo.caption
+        }));
+      });
+      formData.append('photoCount', String(photos.length));
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) throw new Error('Failed to upload trip');
+
+      router.push('/dashboard');
+    } catch (err) {
+      console.error('Upload error:', err);
+      alert('Failed to save trip. Check console for details.');
+    } finally {
       setIsSubmitting(false);
-      // alert('Trip details saved! Now we just need to build the API to handle the images.');
-    }, 1500);
+    }
   };
 
   return (
@@ -107,7 +139,7 @@ export default function NewTripPage() {
               <div className="w-1.5 h-6 bg-stone-800 rounded-full" />
               <h2 className="text-xl font-bold text-stone-900">Add Memories</h2>
             </div>
-            <PhotoUploader />
+            <PhotoUploader onChange={setPhotos} />
           </section>
 
           {/* Section 3: Privacy & Submit */}

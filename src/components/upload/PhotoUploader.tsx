@@ -15,7 +15,11 @@ interface PhotoPreview {
   status: 'pending' | 'processing' | 'uploading' | 'success' | 'error';
 }
 
-export default function PhotoUploader() {
+interface PhotoUploaderProps {
+  onChange: (photos: PhotoPreview[]) => void;
+}
+
+export default function PhotoUploader({ onChange }: PhotoUploaderProps) {
   const [photos, setPhotos] = useState<PhotoPreview[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -27,7 +31,6 @@ export default function PhotoUploader() {
         let lat, lng, takenAt;
         
         try {
-          // Extract EXIF data
           const exif = await exifr.gps(file);
           const date = await exifr.parse(file, ['DateTimeOriginal']);
           
@@ -50,15 +53,18 @@ export default function PhotoUploader() {
       })
     );
 
-    setPhotos((prev) => [...prev, ...newPhotos]);
+    const updatedPhotos = [...photos, ...newPhotos];
+    setPhotos(updatedPhotos);
+    onChange(updatedPhotos);
     setIsProcessing(false);
-  }, []);
+  }, [photos, onChange]);
 
   const removePhoto = (index: number) => {
     setPhotos((prev) => {
       const newPhotos = [...prev];
       URL.revokeObjectURL(newPhotos[index].preview);
       newPhotos.splice(index, 1);
+      onChange(newPhotos);
       return newPhotos;
     });
   };
@@ -67,6 +73,7 @@ export default function PhotoUploader() {
     setPhotos((prev) => {
       const newPhotos = [...prev];
       newPhotos[index].caption = caption;
+      onChange(newPhotos);
       return newPhotos;
     });
   };
