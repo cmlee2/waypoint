@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import Map, { Marker, NavigationControl } from 'react-map-gl';
+import Map, { Marker, NavigationControl } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { TripMapProps } from '@/types/map';
 
