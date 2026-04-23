@@ -1,9 +1,11 @@
 'use client';
 
 import React from 'react';
-import MapboxEngine from './MapboxEngine';
-import LeafletEngine from './LeafletEngine';
+import dynamic from 'next/dynamic';
 import { TripMapProps } from '@/types/map';
+
+const MapboxEngine = dynamic(() => import('./MapboxEngine'), { ssr: false });
+const LeafletEngine = dynamic(() => import('./LeafletEngine'), { ssr: false });
 
 interface MapDisplayProps extends TripMapProps {
   provider: 'mapbox' | 'leaflet';
