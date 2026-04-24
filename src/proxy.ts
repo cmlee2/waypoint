@@ -5,7 +5,7 @@ const isProtectedRoute = createRouteMatcher(['/dashboard(.*)', '/trips(.*)'])
 
 export default clerkMiddleware(async (auth, request) => {
   if (isProtectedRoute(request)) await auth.protect()
-  
+
   // Update Supabase session (refreshes the token)
   return await updateSession(request)
 })
