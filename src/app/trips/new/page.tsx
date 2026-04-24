@@ -145,7 +145,13 @@ export default function NewTripPage() {
               <div className="w-1.5 h-6 bg-stone-800 rounded-full" />
               <h2 className="text-xl font-bold text-stone-900">Add Memories</h2>
             </div>
-            <PhotoUploader onChange={setPhotos} autoOpen={shouldAutoOpenUploader} />
+            <PhotoUploader
+              onChange={setPhotos}
+              autoOpen={shouldAutoOpenUploader}
+              onSubmit={handleCreateTrip}
+              submitDisabled={!tripData.name}
+              isSubmitting={isSubmitting}
+            />
           </section>
 
           {/* Section 3: Privacy & Submit */}

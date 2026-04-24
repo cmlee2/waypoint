@@ -18,40 +18,79 @@ interface PhotoPreview {
 interface PhotoUploaderProps {
   onChange: (photos: PhotoPreview[]) => void;
   autoOpen?: boolean;
+  onSubmit?: () => void;
+  submitDisabled?: boolean;
+  isSubmitting?: boolean;
+  submitLabel?: string;
 }
 
-export default function PhotoUploader({ onChange, autoOpen = false }: PhotoUploaderProps) {
+export default function PhotoUploader({
+  onChange,
+  autoOpen = false,
+  onSubmit,
+  submitDisabled = false,
+  isSubmitting = false,
+  submitLabel = 'Save Memories to Trip',
+}: PhotoUploaderProps) {
   const [photos, setPhotos] = useState<PhotoPreview[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasAutoOpened, setHasAutoOpened] = useState(false);
 
+  const extractMetadata = useCallback(async (file: File) => {
+    const metadata = await exifr.parse(file, [
+      'latitude',
+      'longitude',
+      'DateTimeOriginal',
+      'DateTimeDigitized',
+      'CreateDate',
+      'ModifyDate',
+    ]);
+
+    const takenAt =
+      metadata?.DateTimeOriginal ??
+      metadata?.DateTimeDigitized ??
+      metadata?.CreateDate ??
+      metadata?.ModifyDate ??
+      (file.lastModified ? new Date(file.lastModified) : undefined);
+
+    return {
+      lat: typeof metadata?.latitude === 'number' ? metadata.latitude : undefined,
+      lng: typeof metadata?.longitude === 'number' ? metadata.longitude : undefined,
+      takenAt: takenAt instanceof Date && !Number.isNaN(takenAt.getTime()) ? takenAt : undefined,
+    };
+  }, []);
+
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setIsProcessing(true);
-    
+
+    const remainingSlots = Math.max(0, 15 - photos.length);
+    const filesToProcess = acceptedFiles.slice(0, remainingSlots);
+
     const newPhotos: PhotoPreview[] = await Promise.all(
-      acceptedFiles.map(async (file) => {
-        let lat, lng, takenAt;
-        
+      filesToProcess.map(async (file) => {
         try {
-          const exif = await exifr.gps(file);
-          const date = await exifr.parse(file, ['DateTimeOriginal']);
-          
-          lat = exif?.latitude;
-          lng = exif?.longitude;
-          takenAt = date?.DateTimeOriginal;
+          const { lat, lng, takenAt } = await extractMetadata(file);
+
+          return {
+            file,
+            preview: URL.createObjectURL(file),
+            lat,
+            lng,
+            takenAt,
+            caption: '',
+            status: 'pending'
+          };
         } catch (err) {
           console.warn('Could not extract EXIF data for:', file.name);
-        }
 
-        return {
-          file,
-          preview: URL.createObjectURL(file),
-          lat,
-          lng,
-          takenAt,
-          caption: '',
-          status: 'pending'
-        };
+          return {
+            file,
+            preview: URL.createObjectURL(file),
+            takenAt: file.lastModified ? new Date(file.lastModified) : undefined,
+            caption: '',
+            status: 'pending'
+          };
+        }
       })
     );
 
@@ -59,7 +98,7 @@ export default function PhotoUploader({ onChange, autoOpen = false }: PhotoUploa
     setPhotos(updatedPhotos);
     onChange(updatedPhotos);
     setIsProcessing(false);
-  }, [photos, onChange]);
+  }, [extractMetadata, photos, onChange]);
 
   const removePhoto = (index: number) => {
     setPhotos((prev) => {
@@ -84,7 +123,6 @@ export default function PhotoUploader({ onChange, autoOpen = false }: PhotoUploa
     onDrop,
     accept: { 'image/*': [] },
     maxFiles: 15,
-    noClick: autoOpen,
   });
 
   useEffect(() => {
@@ -93,6 +131,9 @@ export default function PhotoUploader({ onChange, autoOpen = false }: PhotoUploa
     setHasAutoOpened(true);
     open();
   }, [autoOpen, hasAutoOpened, open]);
+
+  const hasCoordinates = (photo: PhotoPreview) =>
+    Number.isFinite(photo.lat) && Number.isFinite(photo.lng);
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-8 p-6">
@@ -113,6 +154,16 @@ export default function PhotoUploader({ onChange, autoOpen = false }: PhotoUploa
           <p className="text-xl font-medium text-stone-900">Drop your trip photos here</p>
           <p className="text-stone-500 mt-1">We'll automatically plot them on your map</p>
         </div>
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            open();
+          }}
+          className="rounded-full border border-stone-300 bg-white px-5 py-2 text-sm font-medium text-stone-700 transition-colors hover:border-stone-400 hover:bg-stone-50"
+        >
+          Browse Photos
+        </button>
         <p className="text-xs text-stone-400 uppercase tracking-widest font-bold">Max 15 photos per trip</p>
       </div>
 
@@ -141,8 +192,8 @@ export default function PhotoUploader({ onChange, autoOpen = false }: PhotoUploa
                 <div className="space-y-2">
                   <div className="flex items-center gap-4 text-xs font-medium text-stone-400 uppercase tracking-wider">
                     <span className="flex items-center gap-1">
-                      <MapPin size={12} className={photo.lat ? 'text-green-500' : 'text-stone-300'} />
-                      {photo.lat ? 'Geotagged' : 'No Location'}
+                      <MapPin size={12} className={hasCoordinates(photo) ? 'text-green-500' : 'text-stone-300'} />
+                      {hasCoordinates(photo) ? 'Geotagged' : 'No Location'}
                     </span>
                     <span className="flex items-center gap-1">
                       <Calendar size={12} className={photo.takenAt ? 'text-blue-500' : 'text-stone-300'} />
@@ -162,15 +213,24 @@ export default function PhotoUploader({ onChange, autoOpen = false }: PhotoUploa
         </div>
       )}
 
-      {/* Upload Button */}
+      {/* Actions */}
       {photos.length > 0 && (
-        <div className="flex justify-end">
-          <button 
-            disabled={isProcessing}
-            className="bg-stone-900 text-white px-8 py-3 rounded-full font-medium hover:bg-stone-800 transition-all disabled:opacity-50 flex items-center gap-2"
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <button
+            type="button"
+            onClick={open}
+            className="rounded-full border border-stone-300 bg-white px-6 py-3 text-sm font-medium text-stone-700 transition-colors hover:border-stone-400 hover:bg-stone-50"
           >
-            {isProcessing && <Loader2 size={18} className="animate-spin" />}
-            Save Memories to Trip
+            Add More Photos
+          </button>
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={isProcessing || isSubmitting || submitDisabled || !onSubmit}
+            className="bg-stone-900 text-white px-8 py-3 rounded-full font-medium hover:bg-stone-800 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {(isProcessing || isSubmitting) && <Loader2 size={18} className="animate-spin" />}
+            {submitLabel}
           </button>
         </div>
       )}

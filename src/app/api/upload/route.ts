@@ -83,14 +83,18 @@ export async function POST(req: Request) {
         .from('photos')
         .getPublicUrl(fileName);
 
+      const lat = Number.isFinite(meta?.lat) ? meta.lat : null;
+      const lng = Number.isFinite(meta?.lng) ? meta.lng : null;
+      const takenAt = meta?.takenAt ? new Date(meta.takenAt) : null;
+
       // Save Photo record in DB
       photoPromises.push(
         supabaseAdmin.from('photos').insert({
           trip_id: trip.id,
           storage_url: publicUrl,
-          lat: meta.lat || 0,
-          lng: meta.lng || 0,
-          taken_at: meta.takenAt || null,
+          lat,
+          lng,
+          taken_at: takenAt && !Number.isNaN(takenAt.getTime()) ? takenAt.toISOString() : null,
           caption: meta.caption || ''
         })
       );
