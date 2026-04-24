@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import exifr from 'exifr';
 import { Camera, X, MapPin, Calendar, Loader2 } from 'lucide-react';
@@ -17,11 +17,13 @@ interface PhotoPreview {
 
 interface PhotoUploaderProps {
   onChange: (photos: PhotoPreview[]) => void;
+  autoOpen?: boolean;
 }
 
-export default function PhotoUploader({ onChange }: PhotoUploaderProps) {
+export default function PhotoUploader({ onChange, autoOpen = false }: PhotoUploaderProps) {
   const [photos, setPhotos] = useState<PhotoPreview[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [hasAutoOpened, setHasAutoOpened] = useState(false);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setIsProcessing(true);
@@ -78,11 +80,19 @@ export default function PhotoUploader({ onChange }: PhotoUploaderProps) {
     });
   };
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     onDrop,
     accept: { 'image/*': [] },
-    maxFiles: 15
+    maxFiles: 15,
+    noClick: autoOpen,
   });
+
+  useEffect(() => {
+    if (!autoOpen || hasAutoOpened) return;
+
+    setHasAutoOpened(true);
+    open();
+  }, [autoOpen, hasAutoOpened, open]);
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-8 p-6">

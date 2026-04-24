@@ -2,11 +2,12 @@
 
 import React, { useState } from 'react';
 import PhotoUploader from '@/components/upload/PhotoUploader';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Calendar, Lock, Globe, ArrowLeft, Loader2 } from 'lucide-react';
 
 export default function NewTripPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [photos, setPhotos] = useState<any[]>([]);
   const [tripData, setTripData] = useState({
@@ -58,6 +59,8 @@ export default function NewTripPage() {
       setIsSubmitting(false);
     }
   };
+
+  const shouldAutoOpenUploader = searchParams.get('quickUpload') === '1';
 
   return (
     <div className="min-h-screen bg-stone-50 pb-20">
@@ -134,12 +137,12 @@ export default function NewTripPage() {
           </section>
 
           {/* Section 2: Photos */}
-          <section className="space-y-6">
+          <section id="photos" className="space-y-6 scroll-mt-24">
             <div className="flex items-center gap-3 px-8">
               <div className="w-1.5 h-6 bg-stone-800 rounded-full" />
               <h2 className="text-xl font-bold text-stone-900">Add Memories</h2>
             </div>
-            <PhotoUploader onChange={setPhotos} />
+            <PhotoUploader onChange={setPhotos} autoOpen={shouldAutoOpenUploader} />
           </section>
 
           {/* Section 3: Privacy & Submit */}
