@@ -41,3 +41,5 @@ yarn-error.log*
 next-env.d.ts
 .env.local
 .git_backup
+/IMG_3244.JPEG
+/test-images/
