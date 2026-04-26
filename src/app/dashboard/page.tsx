@@ -1,7 +1,6 @@
 import React from 'react';
 import { auth } from '@clerk/nextjs/server';
-import { createClient } from '@/utils/supabase/server';
-import { cookies } from 'next/headers';
+import { createAuthenticatedClient } from '@/utils/supabase/server';
 import { MapMarker } from '@/types/map';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
@@ -9,13 +8,13 @@ import DashboardClient from './DashboardClient';
 
 export default async function DashboardPage() {
   const { userId } = await auth();
-  
+
   if (!userId) {
     return null; // Handled by middleware redirect
   }
 
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+  // Use authenticated client to see private trips
+  const supabase = await createAuthenticatedClient();
 
   // Fetch trips and their first photo for the map marker
   const { data: trips, error } = await supabase

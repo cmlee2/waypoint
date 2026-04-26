@@ -26,3 +26,42 @@ export const createClient = (cookieStore: Awaited<ReturnType<typeof cookies>>) =
     },
   );
 };
+
+export async function createAuthenticatedClient() {
+  const cookieStore = await cookies();
+
+  // Try to get Clerk JWT from cookies
+  const clerkJwt = cookieStore.get('__session')?.value;
+
+  if (!clerkJwt) {
+    console.warn("No Clerk JWT found, using unauthenticated client");
+    return createClient(cookieStore);
+  }
+
+  // Create Supabase client with Clerk JWT
+  return createServerClient(
+    supabaseUrl!,
+    supabaseKey!,
+    {
+      global: {
+        headers: {
+          Authorization: `Bearer ${clerkJwt}`,
+        },
+      },
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
+          } catch {
+            // The `setAll` method was called from a Server Component.
+            // This can be ignored if you have middleware refreshing
+            // user sessions.
+          }
+        },
+      },
+    },
+  );
+}
