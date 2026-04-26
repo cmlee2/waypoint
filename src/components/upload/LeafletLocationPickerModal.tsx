@@ -39,6 +39,22 @@ function getInitialLocation(initialLat?: number, initialLng?: number): SelectedL
   return { lat: initialLat, lng: initialLng };
 }
 
+/**
+ * Extract just the place name from Nominatim's full address
+ * Nominatim format: "Place Name, Street, City, State, Country"
+ * We want just the first part, truncated if needed
+ */
+function extractPlaceName(displayName: string): string {
+  if (!displayName) return '';
+
+  // Split by comma and take the first part (the place name)
+  const parts = displayName.split(',').map(part => part.trim());
+  const placeName = parts[0] || displayName;
+
+  // Truncate if too long (max 50 characters)
+  return placeName.length > 50 ? placeName.substring(0, 47) + '...' : placeName;
+}
+
 export default function LeafletLocationPickerModal({
   isOpen,
   onClose,
@@ -200,8 +216,9 @@ export default function LeafletLocationPickerModal({
   const selectSearchResult = (result: NominatimResult) => {
     const lat = parseFloat(result.lat);
     const lng = parseFloat(result.lon);
+    const placeName = extractPlaceName(result.display_name);
 
-    setSelectedLocation({ lat, lng, placeName: result.display_name });
+    setSelectedLocation({ lat, lng, placeName });
     setSearchResults([]);
 
     const map = mapRef.current;
@@ -230,7 +247,7 @@ export default function LeafletLocationPickerModal({
 
     marker.on('dragend', () => {
       const { lat, lng } = marker.getLatLng();
-      setSelectedLocation({ lat, lng, placeName: result.display_name });
+      setSelectedLocation({ lat, lng, placeName });
     });
 
     markerRef.current = marker;
@@ -304,7 +321,7 @@ export default function LeafletLocationPickerModal({
                   <div className="flex items-start gap-2">
                     <MapPin size={16} className="mt-0.5 flex-shrink-0 text-blue-600" />
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-stone-900">{result.display_name}</p>
+                      <p className="text-sm font-medium text-stone-900">{extractPlaceName(result.display_name)}</p>
                     </div>
                   </div>
                 </button>

@@ -40,11 +40,12 @@ export default async function DashboardPage() {
 
   const validTrips = trips || [];
   const markers: MapMarker[] = [];
-  
+
   const clientTrips = validTrips.map((trip) => {
     // Find the first photo with valid coordinates to use as the trip's pin
     const firstValidPhoto = trip.photos?.find((p: any) => p.lat && p.lng);
-    
+
+    // Only add marker if trip has GPS coordinates
     if (firstValidPhoto) {
       markers.push({
         id: trip.id,
@@ -66,10 +67,10 @@ export default async function DashboardPage() {
   });
 
   const defaultCenter = { lat: 20, lng: 0 };
-  const initialCenter = markers.length > 0 
-    ? { lat: markers[0].lat, lng: markers[0].lng } 
+  const initialCenter = markers.length > 0
+    ? { lat: markers[0].lat, lng: markers[0].lng }
     : defaultCenter;
-  
+
   const initialZoom = markers.length > 0 ? 3 : 1;
 
   return (
