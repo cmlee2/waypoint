@@ -148,8 +148,8 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
 
       {/* Main Content: Map */}
       <main className="flex-1 relative bg-stone-100 h-[50vh] md:h-auto">
-        <MapDisplay 
-          provider="mapbox"
+        <MapDisplay
+          provider="leaflet"
           center={initialCenter}
           zoom={initialZoom}
           markers={markers}

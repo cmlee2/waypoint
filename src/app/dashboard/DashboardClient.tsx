@@ -83,8 +83,8 @@ export default function DashboardClient({ trips, markers, initialCenter, initial
 
       {/* Main Content: Map */}
       <main className="flex-1 relative bg-stone-100 h-[50vh] md:h-auto">
-        <MapDisplay 
-          provider="mapbox" // Defaulting to mapbox for the scrapbook feel
+        <MapDisplay
+          provider="leaflet" // Using open source Leaflet for the scrapbook feel
           center={initialCenter}
           zoom={initialZoom}
           markers={markers}
