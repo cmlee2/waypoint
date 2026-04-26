@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@supabase/supabase-js';
-import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
+
+// Dynamically import sharp to handle potential module loading issues
+let sharp: any;
+try {
+  sharp = require('sharp');
+} catch (error) {
+  console.error('Failed to load sharp module:', error);
+}
 
 // Initialize Supabase with Service Role for admin-level operations (resizing/storage)
 const supabaseAdmin = createClient(
@@ -52,22 +59,40 @@ export async function POST(req: Request) {
       if (!file) continue;
 
       const buffer = Buffer.from(await file.arrayBuffer());
-      
-      // OPTIMIZATION: Resize and convert to WebP to save storage space
-      // Max width 1600px, quality 80 for ~200-300KB files
-      const optimizedBuffer = await sharp(buffer)
-        .resize({ width: 1600, withoutEnlargement: true })
-        .webp({ quality: 80 })
-        .toBuffer();
 
-      const fileName = `${userId}/${trip.id}/${uuidv4()}.webp`;
+      // OPTIMIZATION: Resize and convert to WebP to save storage space if possible
+      // Max width 1600px, quality 80 for ~200-300KB files
+      let optimizedBuffer = buffer;
+      let fileExtension = '.jpg';
+      let contentType = file.type || 'image/jpeg';
+
+      if (sharp) {
+        try {
+          optimizedBuffer = await sharp(buffer)
+            .resize({ width: 1600, withoutEnlargement: true })
+            .webp({ quality: 80 })
+            .toBuffer();
+          fileExtension = '.webp';
+          contentType = 'image/webp';
+        } catch (error) {
+          console.warn(`Sharp processing failed for file ${i}, using original:`, error);
+          // Fall back to original file
+          optimizedBuffer = buffer;
+          fileExtension = '.jpg';
+          contentType = file.type || 'image/jpeg';
+        }
+      } else {
+        console.warn(`Sharp not available for file ${i}, using original image`);
+      }
+
+      const fileName = `${userId}/${trip.id}/${uuidv4()}${fileExtension}`;
 
       // Upload to Supabase Storage
       const { data: storageData, error: storageError } = await supabaseAdmin
         .storage
         .from('photos')
         .upload(fileName, optimizedBuffer, {
-          contentType: 'image/webp',
+          contentType,
           cacheControl: '3600',
           upsert: false
         });
