@@ -43,3 +43,9 @@ next-env.d.ts
 .git_backup
 /IMG_3244.JPEG
 /test-images/
+
+# documentation files - keep local only
+CODEX_INSTRUCTIONS.md
+CHANGES_SUMMARY.md
+PUSH_TO_GITHUB.md
+INFO FOR CLAUDE.md

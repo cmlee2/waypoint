@@ -3,19 +3,29 @@ import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 
-// Dynamically import sharp to handle potential module loading issues
-let sharp: any;
-try {
-  sharp = require('sharp');
-} catch (error) {
-  console.error('Failed to load sharp module:', error);
-}
-
-// Initialize Supabase with Service Role for admin-level operations (resizing/storage)
+// Initialize Supabase with Service Role for admin-level operations
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+function getFileExtension(file: File) {
+  const originalExtension = file.name.split('.').pop()?.toLowerCase();
+  if (originalExtension && /^[a-z0-9]+$/.test(originalExtension)) {
+    return `.${originalExtension}`;
+  }
+
+  const typeToExtension: Record<string, string> = {
+    'image/jpeg': '.jpg',
+    'image/png': '.png',
+    'image/webp': '.webp',
+    'image/heic': '.heic',
+    'image/heif': '.heif',
+    'image/gif': '.gif',
+  };
+
+  return typeToExtension[file.type] || '.jpg';
+}
 
 export async function POST(req: Request) {
   try {
@@ -48,51 +58,31 @@ export async function POST(req: Request) {
 
     if (tripError) throw tripError;
 
-    // 2. Process and Upload Photos
+    // 2. Process and Upload Photos (no sharp = no fs/zlib errors)
     const photoPromises = [];
 
     for (let i = 0; i < photoCount; i++) {
       const file = formData.get(`file_${i}`) as File;
       const metaStr = formData.get(`meta_${i}`) as string;
-      const meta = JSON.parse(metaStr);
+      let meta: Record<string, unknown> = {};
 
       if (!file) continue;
 
-      const buffer = Buffer.from(await file.arrayBuffer());
-
-      // OPTIMIZATION: Resize and convert to WebP to save storage space if possible
-      // Max width 1600px, quality 80 for ~200-300KB files
-      let optimizedBuffer = buffer;
-      let fileExtension = '.jpg';
-      let contentType = file.type || 'image/jpeg';
-
-      if (sharp) {
-        try {
-          optimizedBuffer = await sharp(buffer)
-            .resize({ width: 1600, withoutEnlargement: true })
-            .webp({ quality: 80 })
-            .toBuffer();
-          fileExtension = '.webp';
-          contentType = 'image/webp';
-        } catch (error) {
-          console.warn(`Sharp processing failed for file ${i}, using original:`, error);
-          // Fall back to original file
-          optimizedBuffer = buffer;
-          fileExtension = '.jpg';
-          contentType = file.type || 'image/jpeg';
-        }
-      } else {
-        console.warn(`Sharp not available for file ${i}, using original image`);
+      try {
+        meta = metaStr ? (JSON.parse(metaStr) as Record<string, unknown>) : {};
+      } catch (error) {
+        console.warn(`Invalid photo metadata for file ${i}`, error);
       }
 
-      const fileName = `${userId}/${trip.id}/${uuidv4()}${fileExtension}`;
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const fileName = `${userId}/${trip.id}/${uuidv4()}${getFileExtension(file)}`;
 
-      // Upload to Supabase Storage
+      // Upload original file directly - no sharp processing
       const { data: storageData, error: storageError } = await supabaseAdmin
         .storage
         .from('photos')
-        .upload(fileName, optimizedBuffer, {
-          contentType,
+        .upload(fileName, buffer, {
+          contentType: file.type || 'image/jpeg',
           cacheControl: '3600',
           upsert: false
         });
@@ -108,9 +98,9 @@ export async function POST(req: Request) {
         .from('photos')
         .getPublicUrl(fileName);
 
-      const lat = Number.isFinite(meta?.lat) ? meta.lat : null;
-      const lng = Number.isFinite(meta?.lng) ? meta.lng : null;
-      const takenAt = meta?.takenAt ? new Date(meta.takenAt) : null;
+      const lat = typeof meta.lat === 'number' && Number.isFinite(meta.lat) ? meta.lat : null;
+      const lng = typeof meta.lng === 'number' && Number.isFinite(meta.lng) ? meta.lng : null;
+      const takenAt = typeof meta.takenAt === 'string' ? new Date(meta.takenAt) : null;
 
       // Save Photo record in DB
       photoPromises.push(
@@ -120,7 +110,7 @@ export async function POST(req: Request) {
           lat,
           lng,
           taken_at: takenAt && !Number.isNaN(takenAt.getTime()) ? takenAt.toISOString() : null,
-          caption: meta.caption || ''
+          caption: typeof meta.caption === 'string' ? meta.caption : ''
         })
       );
     }

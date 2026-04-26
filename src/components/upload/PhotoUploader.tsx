@@ -4,12 +4,14 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import exifr from 'exifr';
 import { Camera, X, MapPin, Calendar, Loader2 } from 'lucide-react';
+import LocationPickerModal from './LocationPickerModal';
 
 interface PhotoPreview {
   file: File;
   preview: string;
   lat?: number;
   lng?: number;
+  locationName?: string;
   takenAt?: Date;
   caption: string;
   status: 'pending' | 'processing' | 'uploading' | 'success' | 'error';
@@ -35,7 +37,7 @@ export default function PhotoUploader({
   const [photos, setPhotos] = useState<PhotoPreview[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasAutoOpened, setHasAutoOpened] = useState(false);
-  const [editingLocationIndex, setEditingLocationIndex] = useState<number | null>(null);
+  const [locationPickerIndex, setLocationPickerIndex] = useState<number | null>(null);
 
   const extractMetadata = useCallback(async (file: File) => {
     const metadata = await exifr.parse(file, [
@@ -115,6 +117,11 @@ export default function PhotoUploader({
       onChange(newPhotos);
       return newPhotos;
     });
+    setLocationPickerIndex((current) => {
+      if (current === null) return current;
+      if (current === index) return null;
+      return current > index ? current - 1 : current;
+    });
   };
 
   const updateCaption = (index: number, caption: string) => {
@@ -126,11 +133,12 @@ export default function PhotoUploader({
     });
   };
 
-  const updateLocation = (index: number, lat: number, lng: number) => {
+  const updateLocation = (index: number, lat: number, lng: number, locationName?: string) => {
     setPhotos((prev) => {
       const newPhotos = [...prev];
       newPhotos[index].lat = lat;
       newPhotos[index].lng = lng;
+      newPhotos[index].locationName = locationName;
       onChange(newPhotos);
       return newPhotos;
     });
@@ -210,72 +218,27 @@ export default function PhotoUploader({
                 <div className="space-y-2">
                   {/* Location Editing */}
                   <div className="space-y-1">
-                    {editingLocationIndex === index ? (
-                      <>
-                        <div className="flex items-center gap-2 text-xs">
-                          <MapPin size={12} className="text-blue-500" />
-                          <input
-                            type="number"
-                            step="0.0001"
-                            placeholder="Latitude"
-                            defaultValue={photo.lat || ''}
-                            className="w-24 px-1 py-1 text-xs border border-stone-200 rounded"
-                            id={`lat-${index}`}
-                          />
-                          <input
-                            type="number"
-                            step="0.0001"
-                            placeholder="Longitude"
-                            defaultValue={photo.lng || ''}
-                            className="w-24 px-1 py-1 text-xs border border-stone-200 rounded"
-                            id={`lng-${index}`}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const latInput = document.getElementById(`lat-${index}`) as HTMLInputElement;
-                              const lngInput = document.getElementById(`lng-${index}`) as HTMLInputElement;
-                              const lat = parseFloat(latInput.value);
-                              const lng = parseFloat(lngInput.value);
-                              if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
-                                updateLocation(index, lat, lng);
-                                setEditingLocationIndex(null);
-                              }
-                            }}
-                            className="text-xs px-2 py-1 bg-green-500 text-white rounded"
-                          >
-                            Save
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setEditingLocationIndex(null)}
-                            className="text-xs px-2 py-1 bg-stone-300 text-stone-700 rounded"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4 text-xs font-medium text-stone-400 uppercase tracking-wider">
-                          <span className="flex items-center gap-1">
-                            <MapPin size={12} className={hasCoordinates(photo) ? 'text-green-500' : 'text-stone-300'} />
-                            {hasCoordinates(photo) ? (
-                              <span className="text-stone-600">{photo.lat?.toFixed(4)}, {photo.lng?.toFixed(4)}</span>
-                            ) : (
-                              'No Location'
-                            )}
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setEditingLocationIndex(hasCoordinates(photo) && editingLocationIndex !== index ? null : index)}
-                          className="text-xs text-blue-600 hover:text-blue-700"
-                        >
-                          {hasCoordinates(photo) ? 'Edit' : 'Add Location'}
-                        </button>
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-4 text-xs font-medium text-stone-400 uppercase tracking-wider">
+                        <span className="flex items-center gap-1">
+                          <MapPin size={12} className={hasCoordinates(photo) ? 'text-green-500' : 'text-stone-300'} />
+                          {hasCoordinates(photo) ? (
+                            <span className="text-stone-600">
+                              {photo.locationName || `${photo.lat?.toFixed(4)}, ${photo.lng?.toFixed(4)}`}
+                            </span>
+                          ) : (
+                            'No Location'
+                          )}
+                        </span>
                       </div>
-                    )}
+                      <button
+                        type="button"
+                        onClick={() => setLocationPickerIndex(index)}
+                        className="text-xs text-blue-600 hover:text-blue-700"
+                      >
+                        {hasCoordinates(photo) ? 'Edit' : 'Add Location'}
+                      </button>
+                    </div>
                   </div>
 
                   {/* Date display */}
@@ -330,6 +293,18 @@ export default function PhotoUploader({
           </p>
         </div>
       )}
+
+      <LocationPickerModal
+        isOpen={locationPickerIndex !== null}
+        onClose={() => setLocationPickerIndex(null)}
+        initialLat={locationPickerIndex !== null ? photos[locationPickerIndex]?.lat : undefined}
+        initialLng={locationPickerIndex !== null ? photos[locationPickerIndex]?.lng : undefined}
+        onLocationSelect={(lat, lng, placeName) => {
+          if (locationPickerIndex === null) return;
+          updateLocation(locationPickerIndex, lat, lng, placeName);
+          setLocationPickerIndex(null);
+        }}
+      />
     </div>
   );
 }
