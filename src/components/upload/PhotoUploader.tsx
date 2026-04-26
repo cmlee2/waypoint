@@ -4,7 +4,8 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import exifr from 'exifr';
 import { Camera, X, MapPin, Calendar, Loader2 } from 'lucide-react';
-import LocationPickerModal from './LocationPickerModal';
+import LeafletLocationPickerModal from './LeafletLocationPickerModal';
+import { compressImage, formatFileSize } from '@/utils/imageCompression';
 
 interface PhotoPreview {
   file: File;
@@ -75,9 +76,19 @@ export default function PhotoUploader({
           try {
             const { lat, lng, takenAt } = await extractMetadata(file);
 
+            // Compress image first to prevent 413 errors
+            const compressed = await compressImage(file, {
+              maxWidth: 1600,
+              maxHeight: 1600,
+              quality: 0.8,
+              format: 'image/jpeg'
+            });
+
+            console.log(`Compressed ${file.name}: ${formatFileSize(file.size)} → ${formatFileSize(compressed.size)}`);
+
             return {
-              file,
-              preview: URL.createObjectURL(file),
+              file: compressed.file,
+              preview: URL.createObjectURL(compressed.file),
               lat,
               lng,
               takenAt,
@@ -85,12 +96,28 @@ export default function PhotoUploader({
               status: 'pending'
             };
           } catch (err) {
-            console.warn('Could not extract EXIF data for:', file.name);
+            console.warn('Could not process photo:', file.name, err);
 
+            let fallbackTakenAt: Date | undefined;
+            let fallbackLat: number | undefined;
+            let fallbackLng: number | undefined;
+
+            try {
+              const metadata = await extractMetadata(file);
+              fallbackTakenAt = metadata.takenAt;
+              fallbackLat = metadata.lat;
+              fallbackLng = metadata.lng;
+            } catch (metadataError) {
+              console.warn('Could not extract EXIF data for fallback file:', file.name, metadataError);
+            }
+
+            // Fallback: use original file if compression fails
             return {
               file,
               preview: URL.createObjectURL(file),
-              takenAt: file.lastModified ? new Date(file.lastModified) : undefined,
+              lat: fallbackLat,
+              lng: fallbackLng,
+              takenAt: fallbackTakenAt ?? (file.lastModified ? new Date(file.lastModified) : undefined),
               caption: '',
               status: 'pending'
             };
@@ -294,7 +321,7 @@ export default function PhotoUploader({
         </div>
       )}
 
-      <LocationPickerModal
+      <LeafletLocationPickerModal
         isOpen={locationPickerIndex !== null}
         onClose={() => setLocationPickerIndex(null)}
         initialLat={locationPickerIndex !== null ? photos[locationPickerIndex]?.lat : undefined}

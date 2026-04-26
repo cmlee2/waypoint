@@ -1,8 +1,14 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import type mapboxgl from 'mapbox-gl';
-import { Search, X } from 'lucide-react';
+import { Search, X, MapPin } from 'lucide-react';
+
+// Leaflet types
+declare global {
+  interface Window {
+    L?: any;
+  }
+}
 
 interface LocationPickerModalProps {
   isOpen: boolean;
@@ -12,9 +18,10 @@ interface LocationPickerModalProps {
   initialLng?: number;
 }
 
-interface MapboxGeocodingFeature {
-  center: [number, number];
-  place_name: string;
+interface NominatimResult {
+  lat: string;
+  lon: string;
+  display_name: string;
 }
 
 interface SelectedLocation {
@@ -23,18 +30,16 @@ interface SelectedLocation {
   placeName?: string;
 }
 
-const DEFAULT_CENTER: [number, number] = [-122.4194, 37.7749];
-const MAPBOX_CSS_ID = 'mapbox-gl-stylesheet';
+const DEFAULT_CENTER: [number, number] = [-122.4194, 37.7749]; // San Francisco
 
 function getInitialLocation(initialLat?: number, initialLng?: number): SelectedLocation | null {
   if (typeof initialLat !== 'number' || typeof initialLng !== 'number') {
     return null;
   }
-
   return { lat: initialLat, lng: initialLng };
 }
 
-export default function LocationPickerModal({
+export default function LeafletLocationPickerModal({
   isOpen,
   onClose,
   onLocationSelect,
@@ -42,75 +47,86 @@ export default function LocationPickerModal({
   initialLng,
 }: LocationPickerModalProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<mapboxgl.Map | null>(null);
-  const markerRef = useRef<mapboxgl.Marker | null>(null);
-  const mapboxRef = useRef<typeof mapboxgl | null>(null);
+  const mapRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<MapboxGeocodingFeature[]>([]);
+  const [searchResults, setSearchResults] = useState<NominatimResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<SelectedLocation | null>(null);
 
+  // Load Leaflet CSS
   useEffect(() => {
-    if (!isOpen) return;
-
-    setSearchQuery('');
-    setSearchResults([]);
-    setSelectedLocation(getInitialLocation(initialLat, initialLng));
-  }, [initialLat, initialLng, isOpen]);
-
-  useEffect(() => {
-    if (document.getElementById(MAPBOX_CSS_ID)) return;
+    if (document.getElementById('leaflet-css')) return;
 
     const link = document.createElement('link');
-    link.id = MAPBOX_CSS_ID;
+    link.id = 'leaflet-css';
     link.rel = 'stylesheet';
-    link.href = 'https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css';
+    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
     document.head.appendChild(link);
   }, []);
 
+  // Initialize map
   useEffect(() => {
     if (!isOpen || !mapContainerRef.current) return;
 
     let isCancelled = false;
 
     const setupMap = async () => {
-      const { default: mapboxglModule } = await import('mapbox-gl');
-      if (isCancelled || !mapContainerRef.current) return;
-
-      const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
-      if (!mapboxToken) {
-        console.error('Mapbox token not found');
-        return;
+      // Load Leaflet JS
+      if (!window.L) {
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+        script.async = true;
+        await new Promise((resolve) => {
+          script.onload = resolve;
+          document.head.appendChild(script);
+        });
       }
 
-      mapboxRef.current = mapboxglModule;
-      mapboxglModule.accessToken = mapboxToken;
+      if (isCancelled || !mapContainerRef.current) return;
+
+      const L = window.L;
+      if (!L) return;
 
       const startingLocation = getInitialLocation(initialLat, initialLng);
       const center: [number, number] = startingLocation
-        ? [startingLocation.lng, startingLocation.lat]
+        ? [startingLocation.lat, startingLocation.lng]
         : DEFAULT_CENTER;
 
-      const map = new mapboxglModule.Map({
-        container: mapContainerRef.current,
-        style: 'mapbox://styles/mapbox/streets-v12',
+      // Create map
+      const map = L.map(mapContainerRef.current, {
         center,
-        zoom: startingLocation ? 12 : 3,
+        zoom: startingLocation ? 15 : 3,
+        zoomControl: true,
       });
 
+      // Add OpenStreetMap tiles (free, no API key needed)
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+      }).addTo(map);
+
       mapRef.current = map;
-      map.addControl(new mapboxglModule.NavigationControl());
 
+      // Add marker if initial location provided
       const placeMarker = (lat: number, lng: number, placeName?: string) => {
-        markerRef.current?.remove();
+        if (markerRef.current) {
+          map.removeLayer(markerRef.current);
+        }
 
-        const marker = new mapboxglModule.Marker({ color: '#2563eb', draggable: true })
-          .setLngLat([lng, lat])
-          .addTo(map);
+        const marker = L.marker([lat, lng], {
+          draggable: true,
+          icon: L.divIcon({
+            className: 'custom-marker',
+            html: `<div style="background-color: #2563eb; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+          }),
+        }).addTo(map);
 
         marker.on('dragend', () => {
-          const lngLat = marker.getLngLat();
-          setSelectedLocation({ lat: lngLat.lat, lng: lngLat.lng, placeName });
+          const { lat, lng } = marker.getLatLng();
+          setSelectedLocation({ lat, lng, placeName });
         });
 
         markerRef.current = marker;
@@ -121,8 +137,10 @@ export default function LocationPickerModal({
         placeMarker(startingLocation.lat, startingLocation.lng);
       }
 
-      map.on('click', (event) => {
-        placeMarker(event.lngLat.lat, event.lngLat.lng);
+      // Click to place marker
+      map.on('click', (event: any) => {
+        const { lat, lng } = event.latlng;
+        placeMarker(lat, lng);
       });
     };
 
@@ -130,11 +148,22 @@ export default function LocationPickerModal({
 
     return () => {
       isCancelled = true;
-      markerRef.current?.remove();
-      markerRef.current = null;
-      mapRef.current?.remove();
-      mapRef.current = null;
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+      if (markerRef.current) {
+        markerRef.current = null;
+      }
     };
+  }, [initialLat, initialLng, isOpen]);
+
+  // Reset state when modal opens/closes
+  useEffect(() => {
+    if (!isOpen) return;
+    setSearchQuery('');
+    setSearchResults([]);
+    setSelectedLocation(getInitialLocation(initialLat, initialLng));
   }, [initialLat, initialLng, isOpen]);
 
   const handleSearch = async () => {
@@ -144,21 +173,22 @@ export default function LocationPickerModal({
     setIsSearching(true);
 
     try {
-      const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
-      if (!mapboxToken) {
-        throw new Error('Mapbox token not configured');
-      }
-
+      // Use Nominatim (free OpenStreetMap geocoding)
       const response = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${mapboxToken}&limit=5`
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`,
+        {
+          headers: {
+            'User-Agent': 'Waypoint-App', // Required by Nominatim
+          },
+        }
       );
 
       if (!response.ok) {
         throw new Error('Geocoding failed');
       }
 
-      const data = (await response.json()) as { features?: MapboxGeocodingFeature[] };
-      setSearchResults(data.features || []);
+      const data = await response.json();
+      setSearchResults(data || []);
     } catch (error) {
       console.error('Search error:', error);
       setSearchResults([]);
@@ -167,28 +197,40 @@ export default function LocationPickerModal({
     }
   };
 
-  const selectSearchResult = (result: MapboxGeocodingFeature) => {
-    const [lng, lat] = result.center;
-    const map = mapRef.current;
-    const mapboxglModule = mapboxRef.current;
+  const selectSearchResult = (result: NominatimResult) => {
+    const lat = parseFloat(result.lat);
+    const lng = parseFloat(result.lon);
 
-    setSelectedLocation({ lat, lng, placeName: result.place_name });
+    setSelectedLocation({ lat, lng, placeName: result.display_name });
     setSearchResults([]);
 
-    if (!map || !mapboxglModule) return;
+    const map = mapRef.current;
+    if (!map) return;
 
-    map.setCenter([lng, lat]);
-    map.setZoom(15);
+    // Update map view
+    map.setView([lat, lng], 17); // High zoom for POI detail
 
-    markerRef.current?.remove();
+    // Update or create marker
+    if (markerRef.current) {
+      map.removeLayer(markerRef.current);
+    }
 
-    const marker = new mapboxglModule.Marker({ color: '#2563eb', draggable: true })
-      .setLngLat([lng, lat])
-      .addTo(map);
+    const L = window.L;
+    if (!L) return;
+
+    const marker = L.marker([lat, lng], {
+      draggable: true,
+      icon: L.divIcon({
+        className: 'custom-marker',
+        html: `<div style="background-color: #2563eb; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+      }),
+    }).addTo(map);
 
     marker.on('dragend', () => {
-      const lngLat = marker.getLngLat();
-      setSelectedLocation({ lat: lngLat.lat, lng: lngLat.lng, placeName: result.place_name });
+      const { lat, lng } = marker.getLatLng();
+      setSelectedLocation({ lat, lng, placeName: result.display_name });
     });
 
     markerRef.current = marker;
@@ -206,6 +248,7 @@ export default function LocationPickerModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
       <div className="flex h-full max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+        {/* Header */}
         <div className="flex items-center justify-between border-b border-stone-200 p-6">
           <h2 className="text-2xl font-bold text-stone-900">Pick a Location</h2>
           <button
@@ -217,6 +260,7 @@ export default function LocationPickerModal({
           </button>
         </div>
 
+        {/* Search */}
         <div className="border-b border-stone-200 p-4">
           <div className="flex gap-2">
             <input
@@ -236,7 +280,7 @@ export default function LocationPickerModal({
               type="button"
               onClick={() => void handleSearch()}
               disabled={isSearching || !searchQuery.trim()}
-              className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-xl bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {isSearching ? (
                 <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -247,34 +291,46 @@ export default function LocationPickerModal({
             </button>
           </div>
 
+          {/* Search Results */}
           {searchResults.length > 0 && (
             <div className="mt-3 space-y-1">
-              {searchResults.map((result) => (
+              {searchResults.map((result, index) => (
                 <button
-                  key={`${result.place_name}-${result.center.join(',')}`}
+                  key={index}
                   type="button"
                   onClick={() => selectSearchResult(result)}
-                  className="w-full rounded-xl border border-stone-200 p-3 text-left transition-colors hover:border-blue-300 hover:bg-stone-50"
+                  className="w-full rounded-xl border border-stone-200 p-3 text-left transition-colors hover:bg-stone-50 hover:border-blue-300"
                 >
-                  <p className="text-sm font-medium text-stone-900">{result.place_name}</p>
+                  <div className="flex items-start gap-2">
+                    <MapPin size={16} className="mt-0.5 flex-shrink-0 text-blue-600" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-stone-900">{result.display_name}</p>
+                    </div>
+                  </div>
                 </button>
               ))}
             </div>
           )}
         </div>
 
-        <div className="relative flex-1 bg-stone-100">
+        {/* Map */}
+        <div className="relative flex-1">
           <div ref={mapContainerRef} className="h-full w-full" />
 
-          <div className="absolute left-4 top-4 max-w-xs rounded-xl bg-white/90 p-3 shadow-lg backdrop-blur">
+          {/* Instructions */}
+          <div className="absolute left-4 top-4 rounded-xl bg-white/90 p-3 shadow-lg backdrop-blur max-w-xs">
             <p className="text-sm text-stone-700">
-              Click the map or search above to set the photo location.
+              📍 Click on the map to select a location, or search above
+            </p>
+            <p className="mt-1 text-xs text-stone-500">
+              Use +/- buttons to zoom in for exact restaurant locations
             </p>
           </div>
 
+          {/* Selected Location Info */}
           {selectedLocation && (
             <div className="absolute bottom-4 left-4 rounded-xl bg-white/90 p-4 shadow-lg backdrop-blur">
-              <p className="font-medium text-stone-900">Selected Location</p>
+              <p className="font-medium text-stone-900">Selected Location:</p>
               <p className="text-sm text-stone-600">
                 {selectedLocation.placeName || `${selectedLocation.lat.toFixed(6)}, ${selectedLocation.lng.toFixed(6)}`}
               </p>
@@ -282,6 +338,7 @@ export default function LocationPickerModal({
           )}
         </div>
 
+        {/* Footer */}
         <div className="flex items-center justify-between border-t border-stone-200 p-4">
           <button
             type="button"
@@ -294,7 +351,7 @@ export default function LocationPickerModal({
             type="button"
             onClick={handleConfirm}
             disabled={!selectedLocation}
-            className="rounded-xl bg-blue-600 px-6 py-2 font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl bg-blue-600 px-6 py-2 font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Confirm Location
           </button>
