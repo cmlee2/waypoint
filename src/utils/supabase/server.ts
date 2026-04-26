@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { auth } from "@clerk/nextjs/server";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -30,38 +31,44 @@ export const createClient = (cookieStore: Awaited<ReturnType<typeof cookies>>) =
 export async function createAuthenticatedClient() {
   const cookieStore = await cookies();
 
-  // Try to get Clerk JWT from cookies
-  const clerkJwt = cookieStore.get('__session')?.value;
+  // Get Clerk JWT using the proper auth method
+  try {
+    const { getToken } = await auth();
+    const clerkJwt = await getToken({ template: 'supabase' });
 
-  if (!clerkJwt) {
-    console.warn("No Clerk JWT found, using unauthenticated client");
+    if (!clerkJwt) {
+      console.warn("No Clerk JWT found, using unauthenticated client");
+      return createClient(cookieStore);
+    }
+
+    // Create Supabase client with Clerk JWT
+    return createServerClient(
+      supabaseUrl!,
+      supabaseKey!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${clerkJwt}`,
+          },
+        },
+        cookies: {
+          getAll() {
+            return cookieStore.getAll()
+          },
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
+            } catch {
+              // The `setAll` method was called from a Server Component.
+              // This can be ignored if you have middleware refreshing
+              // user sessions.
+            }
+          },
+        },
+      },
+    );
+  } catch (error) {
+    console.error("Failed to get Clerk token:", error);
     return createClient(cookieStore);
   }
-
-  // Create Supabase client with Clerk JWT
-  return createServerClient(
-    supabaseUrl!,
-    supabaseKey!,
-    {
-      global: {
-        headers: {
-          Authorization: `Bearer ${clerkJwt}`,
-        },
-      },
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
-          } catch {
-            // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
-          }
-        },
-      },
-    },
-  );
 }

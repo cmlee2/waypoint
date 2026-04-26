@@ -42,7 +42,9 @@ export default async function DashboardPage() {
 
   const clientTrips = validTrips.map((trip) => {
     // Find the first photo with valid coordinates to use as the trip's pin
-    const firstValidPhoto = trip.photos?.find((p: any) => p.lat && p.lng);
+    const firstValidPhoto = trip.photos?.find((p: any) =>
+      typeof p.lat === 'number' && typeof p.lng === 'number' && Number.isFinite(p.lat) && Number.isFinite(p.lng)
+    );
 
     // Only add marker if trip has GPS coordinates
     if (firstValidPhoto) {
