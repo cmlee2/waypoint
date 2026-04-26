@@ -35,6 +35,7 @@ export default function PhotoUploader({
   const [photos, setPhotos] = useState<PhotoPreview[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasAutoOpened, setHasAutoOpened] = useState(false);
+  const [editingLocationIndex, setEditingLocationIndex] = useState<number | null>(null);
 
   const extractMetadata = useCallback(async (file: File) => {
     const metadata = await exifr.parse(file, [
@@ -63,41 +64,47 @@ export default function PhotoUploader({
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setIsProcessing(true);
 
-    const remainingSlots = Math.max(0, 15 - photos.length);
-    const filesToProcess = acceptedFiles.slice(0, remainingSlots);
+    try {
+      const remainingSlots = Math.max(0, 15 - photos.length);
+      const filesToProcess = acceptedFiles.slice(0, remainingSlots);
 
-    const newPhotos: PhotoPreview[] = await Promise.all(
-      filesToProcess.map(async (file) => {
-        try {
-          const { lat, lng, takenAt } = await extractMetadata(file);
+      const newPhotos: PhotoPreview[] = await Promise.all(
+        filesToProcess.map(async (file) => {
+          try {
+            const { lat, lng, takenAt } = await extractMetadata(file);
 
-          return {
-            file,
-            preview: URL.createObjectURL(file),
-            lat,
-            lng,
-            takenAt,
-            caption: '',
-            status: 'pending'
-          };
-        } catch (err) {
-          console.warn('Could not extract EXIF data for:', file.name);
+            return {
+              file,
+              preview: URL.createObjectURL(file),
+              lat,
+              lng,
+              takenAt,
+              caption: '',
+              status: 'pending'
+            };
+          } catch (err) {
+            console.warn('Could not extract EXIF data for:', file.name);
 
-          return {
-            file,
-            preview: URL.createObjectURL(file),
-            takenAt: file.lastModified ? new Date(file.lastModified) : undefined,
-            caption: '',
-            status: 'pending'
-          };
-        }
-      })
-    );
+            return {
+              file,
+              preview: URL.createObjectURL(file),
+              takenAt: file.lastModified ? new Date(file.lastModified) : undefined,
+              caption: '',
+              status: 'pending'
+            };
+          }
+        })
+      );
 
-    const updatedPhotos = [...photos, ...newPhotos];
-    setPhotos(updatedPhotos);
-    onChange(updatedPhotos);
-    setIsProcessing(false);
+      const updatedPhotos = [...photos, ...newPhotos];
+      setPhotos(updatedPhotos);
+      onChange(updatedPhotos);
+    } catch (error) {
+      console.error("Photo processing failed:", error);
+      alert("Some photos could not be processed. Please try again.");
+    } finally {
+      setIsProcessing(false);
+    }
   }, [extractMetadata, photos, onChange]);
 
   const removePhoto = (index: number) => {
@@ -114,6 +121,16 @@ export default function PhotoUploader({
     setPhotos((prev) => {
       const newPhotos = [...prev];
       newPhotos[index].caption = caption;
+      onChange(newPhotos);
+      return newPhotos;
+    });
+  };
+
+  const updateLocation = (index: number, lat: number, lng: number) => {
+    setPhotos((prev) => {
+      const newPhotos = [...prev];
+      newPhotos[index].lat = lat;
+      newPhotos[index].lng = lng;
       onChange(newPhotos);
       return newPhotos;
     });
@@ -138,8 +155,8 @@ export default function PhotoUploader({
   return (
     <div className="w-full max-w-4xl mx-auto space-y-8 p-6">
       {/* Dropzone */}
-      <div 
-        {...getRootProps()} 
+      <div
+        {...getRootProps()}
         className={`
           border-2 border-dashed rounded-3xl p-12 transition-all cursor-pointer
           flex flex-col items-center justify-center text-center space-y-4
@@ -174,12 +191,13 @@ export default function PhotoUploader({
             <div key={index} className="bg-white rounded-2xl border border-stone-200 overflow-hidden flex shadow-sm group">
               {/* Image Preview */}
               <div className="w-1/3 relative aspect-square bg-stone-100">
-                <img 
-                  src={photo.preview} 
-                  alt="Preview" 
+                <img
+                  src={photo.preview}
+                  alt="Preview"
                   className="w-full h-full object-cover"
                 />
-                <button 
+                <button
+                  type="button"
                   onClick={() => removePhoto(index)}
                   className="absolute top-2 left-2 p-1 bg-white/90 rounded-full text-stone-900 opacity-0 group-hover:opacity-100 transition-opacity"
                 >
@@ -190,21 +208,89 @@ export default function PhotoUploader({
               {/* Details & Caption */}
               <div className="flex-1 p-4 flex flex-col justify-between space-y-3">
                 <div className="space-y-2">
-                  <div className="flex items-center gap-4 text-xs font-medium text-stone-400 uppercase tracking-wider">
-                    <span className="flex items-center gap-1">
-                      <MapPin size={12} className={hasCoordinates(photo) ? 'text-green-500' : 'text-stone-300'} />
-                      {hasCoordinates(photo) ? 'Geotagged' : 'No Location'}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Calendar size={12} className={photo.takenAt ? 'text-blue-500' : 'text-stone-300'} />
-                      {photo.takenAt ? photo.takenAt.toLocaleDateString() : 'No Date'}
-                    </span>
+                  {/* Location Editing */}
+                  <div className="space-y-1">
+                    {editingLocationIndex === index ? (
+                      <>
+                        <div className="flex items-center gap-2 text-xs">
+                          <MapPin size={12} className="text-blue-500" />
+                          <input
+                            type="number"
+                            step="0.0001"
+                            placeholder="Latitude"
+                            defaultValue={photo.lat || ''}
+                            className="w-24 px-1 py-1 text-xs border border-stone-200 rounded"
+                            id={`lat-${index}`}
+                          />
+                          <input
+                            type="number"
+                            step="0.0001"
+                            placeholder="Longitude"
+                            defaultValue={photo.lng || ''}
+                            className="w-24 px-1 py-1 text-xs border border-stone-200 rounded"
+                            id={`lng-${index}`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const latInput = document.getElementById(`lat-${index}`) as HTMLInputElement;
+                              const lngInput = document.getElementById(`lng-${index}`) as HTMLInputElement;
+                              const lat = parseFloat(latInput.value);
+                              const lng = parseFloat(lngInput.value);
+                              if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+                                updateLocation(index, lat, lng);
+                                setEditingLocationIndex(null);
+                              }
+                            }}
+                            className="text-xs px-2 py-1 bg-green-500 text-white rounded"
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingLocationIndex(null)}
+                            className="text-xs px-2 py-1 bg-stone-300 text-stone-700 rounded"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4 text-xs font-medium text-stone-400 uppercase tracking-wider">
+                          <span className="flex items-center gap-1">
+                            <MapPin size={12} className={hasCoordinates(photo) ? 'text-green-500' : 'text-stone-300'} />
+                            {hasCoordinates(photo) ? (
+                              <span className="text-stone-600">{photo.lat?.toFixed(4)}, {photo.lng?.toFixed(4)}</span>
+                            ) : (
+                              'No Location'
+                            )}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setEditingLocationIndex(hasCoordinates(photo) && editingLocationIndex !== index ? null : index)}
+                          className="text-xs text-blue-600 hover:text-blue-700"
+                        >
+                          {hasCoordinates(photo) ? 'Edit' : 'Add Location'}
+                        </button>
+                      </div>
+                    )}
                   </div>
+
+                  {/* Date display */}
+                  <div className="flex items-center gap-1 text-xs font-medium text-stone-400 uppercase tracking-wider">
+                    <Calendar size={12} className={photo.takenAt ? 'text-blue-500' : 'text-stone-300'} />
+                    {photo.takenAt ? photo.takenAt.toLocaleDateString() : 'No Date'}
+                  </div>
+
+                  {/* Caption */}
                   <textarea
                     placeholder="Add a caption..."
                     value={photo.caption}
                     onChange={(e) => updateCaption(index, e.target.value)}
                     className="w-full text-sm border-none focus:ring-0 p-0 resize-none text-stone-700 placeholder:text-stone-300 h-12"
+                    disabled={isProcessing}
                   />
                 </div>
               </div>
@@ -214,7 +300,7 @@ export default function PhotoUploader({
       )}
 
       {/* Actions */}
-      {photos.length > 0 && (
+      {photos.length > 0 && !isProcessing && (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <button
             type="button"
@@ -226,12 +312,22 @@ export default function PhotoUploader({
           <button
             type="button"
             onClick={onSubmit}
-            disabled={isProcessing || isSubmitting || submitDisabled || !onSubmit}
+            disabled={isSubmitting || submitDisabled || !onSubmit}
             className="bg-stone-900 text-white px-8 py-3 rounded-full font-medium hover:bg-stone-800 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {(isProcessing || isSubmitting) && <Loader2 size={18} className="animate-spin" />}
+            {isSubmitting && <Loader2 size={18} className="animate-spin" />}
             {submitLabel}
           </button>
+        </div>
+      )}
+
+      {/* Processing State */}
+      {photos.length > 0 && isProcessing && (
+        <div className="flex items-center justify-center py-4">
+          <p className="text-stone-500 text-sm">
+            <Loader2 size={14} className="inline mr-2 animate-spin" />
+            Processing photos...
+          </p>
         </div>
       )}
     </div>
