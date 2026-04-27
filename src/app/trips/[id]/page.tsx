@@ -1,6 +1,6 @@
 import React from 'react';
 import { auth } from '@clerk/nextjs/server';
-import { createAuthenticatedClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/server';
 import { notFound, redirect } from 'next/navigation';
 import TripViewClient from './TripViewClient';
 
@@ -10,8 +10,7 @@ export default async function TripPage({ params }: { params: { id: string } }) {
     redirect('/sign-in');
   }
 
-  // Use authenticated client to see private trips
-  const supabase = await createAuthenticatedClient();
+  const supabase = createAdminClient();
 
   // Fetch the trip and its photos, ordering photos by taken_at
   const { data: trip, error } = await supabase

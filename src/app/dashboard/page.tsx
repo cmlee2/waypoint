@@ -1,6 +1,6 @@
 import React from 'react';
 import { auth } from '@clerk/nextjs/server';
-import { createAuthenticatedClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/server';
 import { MapMarker } from '@/types/map';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
@@ -13,8 +13,7 @@ export default async function DashboardPage() {
     return null; // Handled by middleware redirect
   }
 
-  // Use authenticated client to see private trips
-  const supabase = await createAuthenticatedClient();
+  const supabase = createAdminClient();
 
   // Fetch trips and their first photo for the map marker
   const { data: trips, error } = await supabase

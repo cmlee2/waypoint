@@ -1,9 +1,13 @@
+import "server-only";
+
 import { createServerClient } from "@supabase/ssr";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { auth } from "@clerk/nextjs/server";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 export const createClient = (cookieStore: Awaited<ReturnType<typeof cookies>>) => {
   return createServerClient(
@@ -71,4 +75,17 @@ export async function createAuthenticatedClient() {
     console.error("Failed to get Clerk token:", error);
     return createClient(cookieStore);
   }
+}
+
+export function createAdminClient() {
+  return createSupabaseClient(
+    supabaseUrl!,
+    supabaseServiceRoleKey!,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    },
+  );
 }
