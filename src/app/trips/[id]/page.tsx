@@ -4,12 +4,13 @@ import { createAdminClient } from '@/utils/supabase/server';
 import { notFound, redirect } from 'next/navigation';
 import TripViewClient from './TripViewClient';
 
-export default async function TripPage({ params }: { params: { id: string } }) {
+export default async function TripPage({ params }: { params: Promise<{ id: string }> }) {
   const { userId } = await auth();
   if (!userId) {
     redirect('/sign-in');
   }
 
+  const { id } = await params;
   const supabase = createAdminClient();
 
   // Fetch the trip and its photos, ordering photos by taken_at
@@ -26,7 +27,7 @@ export default async function TripPage({ params }: { params: { id: string } }) {
         taken_at
       )
     `)
-    .eq('id', params.id)
+    .eq('id', id)
     .single();
 
   if (error || !trip) {
