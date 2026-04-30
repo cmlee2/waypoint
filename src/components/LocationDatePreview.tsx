@@ -5,7 +5,7 @@ import { DateAnalysisResult } from '@/utils/photoDateAnalyzer';
 import { Calendar } from 'lucide-react';
 
 interface LocationDatePreviewProps {
-  dateAnalysis: DateAnalysisResult;
+  dateAnalysis: DateAnalysisResult | null;
   startDate: string;
   endDate: string;
   onStartDateChange: (date: string) => void;
@@ -21,7 +21,7 @@ export default function LocationDatePreview({
   onEndDateChange,
   userHasEdited,
 }: LocationDatePreviewProps) {
-  const showAutoDetectedInfo = dateAnalysis.hasDates && !userHasEdited;
+  const showAutoDetectedInfo = !!dateAnalysis?.hasDates && !userHasEdited;
 
   const handleStartDateChange = (value: string) => {
     onStartDateChange(value);
@@ -40,14 +40,14 @@ export default function LocationDatePreview({
             <p className="text-sm font-medium text-blue-900">
               📅 Detected from photos: {' '}
               <span className="font-semibold">
-                {dateAnalysis.dateRange
+                {dateAnalysis?.dateRange
                   ? dateAnalysis.formattedRange
-                  : dateAnalysis.formattedSingleDate}
+                  : dateAnalysis?.formattedSingleDate}
               </span>
             </p>
           </div>
           <p className="mt-1 text-xs text-blue-700">
-            {dateAnalysis.dateCount} of {dateAnalysis.dateCount} photos have date metadata
+            {dateAnalysis?.dateCount} of {dateAnalysis?.dateCount} photos have date metadata
           </p>
         </div>
       )}
