@@ -4,7 +4,7 @@ import { createAdminClient } from '@/utils/supabase/server';
 import { MapMarker } from '@/types/map';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
-import DashboardClient from './DashboardClient';
+import DashboardClient from './dashboard/DashboardClient';
 import AuthPopup from '@/components/AuthPopup';
 
 export default async function HomePage() {
