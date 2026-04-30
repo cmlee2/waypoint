@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import PhotoUploader from '@/components/upload/PhotoUploader';
 import LocationDatePreview from '@/components/LocationDatePreview';
 import { useRouter } from 'next/navigation';
-import { analyzePhotoDates } from '@/utils/photoDateAnalyzer';
+import { analyzePhotoDates, DateAnalysisResult } from '@/utils/photoDateAnalyzer';
 import { Lock, Globe, ArrowLeft, Loader2 } from 'lucide-react';
 
 export default function NewTripPage() {
@@ -12,7 +12,7 @@ export default function NewTripPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [photos, setPhotos] = useState<any[]>([]);
   const [shouldAutoOpenUploader, setShouldAutoOpenUploader] = useState(false);
-  const [dateAnalysis, setDateAnalysis] = useState(null);
+  const [dateAnalysis, setDateAnalysis] = useState<DateAnalysisResult | null>(null);
   const [userHasEditedDates, setUserHasEditedDates] = useState(false);
   const [tripData, setTripData] = useState({
     name: '',
