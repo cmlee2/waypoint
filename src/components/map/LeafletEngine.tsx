@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { TripMapProps } from '@/types/map';
+import { truncatePlaceName } from '@/utils/location/formatAddress';
 import 'leaflet/dist/leaflet.css';
 
 // Dynamically import Leaflet components (no SSR)
@@ -33,15 +34,23 @@ export default function LeafletEngine({
 
   if (!L) return <div className={`${className} bg-stone-50 rounded-xl`} />;
 
-  // Create a custom minimalist marker icon
-  const customIcon = L.divIcon({
-    className: 'custom-div-icon',
-    html: `<div class="w-6 h-6 bg-stone-800 rounded-full border-2 border-white shadow-md flex items-center justify-center">
+  // Create a custom marker icon with truncated place name
+  const createMarkerIcon = (placeName?: string) => {
+    const truncatedName = truncatePlaceName(placeName || '', 25);
+    return L.divIcon({
+      className: 'custom-div-icon',
+      html: `
+        <div class="flex flex-col items-center">
+          <div class="w-6 h-6 bg-stone-800 rounded-full border-2 border-white shadow-md flex items-center justify-center">
             <div class="w-2 h-2 bg-white rounded-full"></div>
-           </div>`,
-    iconSize: [24, 24],
-    iconAnchor: [12, 24]
-  });
+          </div>
+          ${truncatedName ? `<div class="mt-1 px-2 py-1 bg-white rounded-md shadow-sm text-xs font-medium text-stone-700 whitespace-nowrap max-w-[150px] overflow-hidden text-ellipsis">${truncatedName}</div>` : ''}
+        </div>
+      `,
+      iconSize: [24, 24],
+      iconAnchor: [12, 24]
+    });
+  };
 
   return (
     <div className={`${className} overflow-hidden rounded-xl border-2 border-stone-200 shadow-sm relative z-0`}>
@@ -58,10 +67,10 @@ export default function LeafletEngine({
         <ZoomControl position="topright" />
         
         {markers.map((marker) => (
-          <Marker 
+          <Marker
             key={marker.id}
             position={[marker.lat, marker.lng]}
-            icon={customIcon}
+            icon={createMarkerIcon(marker.placeName)}
             eventHandlers={{
               click: () => onMarkerClick?.(marker.id),
             }}

@@ -3,9 +3,11 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import exifr from 'exifr';
-import { Camera, X, MapPin, Calendar, Loader2 } from 'lucide-react';
+import { Camera, X, MapPin, Calendar, Loader2, Image as ImageIcon } from 'lucide-react';
 import LeafletLocationPickerModal from './LeafletLocationPickerModal';
+// import GooglePhotosPicker from '@/components/GooglePhotosPicker';
 import { compressImage, formatFileSize } from '@/utils/imageCompression';
+import { GooglePhoto, createGooglePhotosClient } from '@/utils/google/photos';
 
 interface PhotoPreview {
   file: File;
@@ -39,6 +41,9 @@ export default function PhotoUploader({
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasAutoOpened, setHasAutoOpened] = useState(false);
   const [locationPickerIndex, setLocationPickerIndex] = useState<number | null>(null);
+  const [googlePhotosOpen, setGooglePhotosOpen] = useState(false);
+  const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
+  const [isImportingFromGoogle, setIsImportingFromGoogle] = useState(false);
 
   const extractMetadata = useCallback(async (file: File) => {
     const metadata = await exifr.parse(file, [
@@ -171,6 +176,70 @@ export default function PhotoUploader({
     });
   };
 
+  const handleGooglePhotosImport = async (selectedPhotos: GooglePhoto[]) => {
+    setIsImportingFromGoogle(true);
+
+    try {
+      const { client, rateLimiter } = createGooglePhotosClient(googleAccessToken || '');
+
+      const newPhotos: PhotoPreview[] = await Promise.all(
+        selectedPhotos.map(async (googlePhoto) => {
+          try {
+            const uploadData = await rateLimiter.execute(() =>
+              client.convertToUploadFormat(googlePhoto)
+            );
+
+            // Convert Blob to File
+            const file = new File([uploadData.file], uploadData.filename, {
+              type: uploadData.file.type || 'image/jpeg',
+            });
+
+            return {
+              file,
+              preview: URL.createObjectURL(file),
+              lat: uploadData.lat,
+              lng: uploadData.lng,
+              takenAt: uploadData.takenAt,
+              caption: '',
+              status: 'pending' as const,
+            };
+          } catch (error) {
+            console.error('Failed to process Google Photo:', googlePhoto.id, error);
+            throw error;
+          }
+        })
+      );
+
+      const updatedPhotos = [...photos, ...newPhotos];
+      setPhotos(updatedPhotos);
+      onChange(updatedPhotos);
+    } catch (error) {
+      console.error('Google Photos import failed:', error);
+      alert('Failed to import photos from Google Photos. Please try again.');
+    } finally {
+      setIsImportingFromGoogle(false);
+    }
+  };
+
+  const handleGoogleAuth = async () => {
+    try {
+      // Initiate OAuth flow
+      const response = await fetch('/api/google/oauth?action=authorize');
+
+      if (!response.ok) {
+        throw new Error('Failed to initiate OAuth flow');
+      }
+
+      // The response will be a redirect to Google's OAuth page
+      // In a real implementation, you'd handle the callback
+      // For now, we'll show a message
+      alert('Google Photos OAuth flow initiated. Please complete the authorization in the popup.');
+    } catch (error) {
+      console.error('Google Auth error:', error);
+      alert('Failed to connect to Google Photos. Please try again.');
+    }
+  };
+
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     onDrop,
     accept: { 'image/*': [] },
@@ -218,6 +287,32 @@ export default function PhotoUploader({
         </button>
         <p className="text-xs text-stone-400 uppercase tracking-widest font-bold">Max 15 photos per trip</p>
       </div>
+
+      {/* Google Photos Import - DISABLED FOR NOW */}
+      {/* <div className="flex items-center justify-center gap-4">
+        <div className="h-px flex-1 bg-stone-200" />
+        <span className="text-sm text-stone-400">or</span>
+        <div className="h-px flex-1 bg-stone-200" />
+      </div>
+
+      <button
+        type="button"
+        onClick={handleGoogleAuth}
+        disabled={isImportingFromGoogle}
+        className="w-full rounded-2xl border-2 border-stone-200 bg-white p-6 transition-all hover:border-stone-300 hover:bg-stone-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+      >
+        {isImportingFromGoogle ? (
+          <>
+            <Loader2 size={24} className="animate-spin text-stone-400" />
+            <span className="text-stone-600">Importing from Google Photos...</span>
+          </>
+        ) : (
+          <>
+            <ImageIcon size={24} className="text-stone-400" />
+            <span className="text-stone-700 font-medium">Import from Google Photos</span>
+          </>
+        )}
+      </button> */}
 
       {/* Photo List */}
       {photos.length > 0 && (
@@ -332,6 +427,15 @@ export default function PhotoUploader({
           setLocationPickerIndex(null);
         }}
       />
+
+      {/* Google Photos Picker - DISABLED FOR NOW */}
+      {/* <GooglePhotosPicker
+        isOpen={googlePhotosOpen}
+        onClose={() => setGooglePhotosOpen(false)}
+        onPhotosSelected={handleGooglePhotosImport}
+        accessToken={googleAccessToken || ''}
+        maxPhotos={15 - photos.length}
+      /> */}
     </div>
   );
 }

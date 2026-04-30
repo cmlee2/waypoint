@@ -36,7 +36,7 @@ export default function RootLayout({
                 </Show>
                 <Show when="signed-in">
                   <div className="flex items-center gap-4">
-                    <a href="/dashboard" className="text-sm font-medium text-stone-600 hover:text-stone-900">Dashboard</a>
+                    <a href="/" className="text-sm font-medium text-stone-600 hover:text-stone-900">Home</a>
                     <UserButton />
                   </div>
                 </Show>

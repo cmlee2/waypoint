@@ -1,7 +1,7 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { updateSession } from '@/utils/supabase/middleware'
 
-const isProtectedRoute = createRouteMatcher(['/dashboard(.*)', '/trips(.*)'])
+const isProtectedRoute = createRouteMatcher(['/(.*)', '/trips(.*)'])
 
 export default clerkMiddleware(async (auth, request) => {
   if (isProtectedRoute(request)) await auth.protect()

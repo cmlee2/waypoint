@@ -47,12 +47,12 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
       <aside className="w-full md:w-96 lg:w-[400px] bg-white border-r border-stone-200 overflow-y-auto flex flex-col z-10 shadow-xl md:shadow-none">
         {/* Header */}
         <div className="p-6 border-b border-stone-100 sticky top-0 bg-white/95 backdrop-blur z-20">
-          <button 
-            onClick={() => router.push('/dashboard')}
+          <button
+            onClick={() => router.push('/')}
             className="flex items-center gap-2 text-stone-500 hover:text-stone-900 transition-colors mb-4 group"
           >
             <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-            <span className="text-xs font-bold uppercase tracking-widest">Dashboard</span>
+            <span className="text-xs font-bold uppercase tracking-widest">Home</span>
           </button>
           
           <h1 className="text-2xl font-bold text-stone-900 leading-tight">{trip.name}</h1>

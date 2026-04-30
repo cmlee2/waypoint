@@ -2,14 +2,18 @@
 
 import React, { useEffect, useState } from 'react';
 import PhotoUploader from '@/components/upload/PhotoUploader';
+import LocationDatePreview from '@/components/LocationDatePreview';
 import { useRouter } from 'next/navigation';
-import { Calendar, Lock, Globe, ArrowLeft, Loader2 } from 'lucide-react';
+import { analyzePhotoDates } from '@/utils/photoDateAnalyzer';
+import { Lock, Globe, ArrowLeft, Loader2 } from 'lucide-react';
 
 export default function NewTripPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [photos, setPhotos] = useState<any[]>([]);
   const [shouldAutoOpenUploader, setShouldAutoOpenUploader] = useState(false);
+  const [dateAnalysis, setDateAnalysis] = useState(null);
+  const [userHasEditedDates, setUserHasEditedDates] = useState(false);
   const [tripData, setTripData] = useState({
     name: '',
     description: '',
@@ -17,6 +21,37 @@ export default function NewTripPage() {
     endDate: '',
     isPublic: false
   });
+
+  useEffect(() => {
+    if (photos.length > 0) {
+      const analysis = analyzePhotoDates(photos);
+      setDateAnalysis(analysis);
+
+      // Auto-fill dates if not user-edited
+      if (!userHasEditedDates && analysis.hasDates) {
+        if (analysis.dateRange) {
+          setTripData(prev => ({
+            ...prev,
+            startDate: formatDateForInput(analysis.dateRange.startDate),
+            endDate: formatDateForInput(analysis.dateRange.endDate)
+          }));
+        } else if (analysis.singleDate) {
+          setTripData(prev => ({
+            ...prev,
+            startDate: formatDateForInput(analysis.singleDate),
+            endDate: formatDateForInput(analysis.singleDate)
+          }));
+        }
+      }
+    }
+  }, [photos, userHasEditedDates]);
+
+  const formatDateForInput = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -56,7 +91,7 @@ export default function NewTripPage() {
 
       if (!response.ok) throw new Error('Failed to upload trip');
 
-      router.push('/dashboard');
+      router.push('/');
     } catch (err) {
       console.error('Upload error:', err);
       alert('Failed to save trip. Check console for details.');
@@ -102,30 +137,20 @@ export default function NewTripPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
-                    <Calendar size={14} /> Start Date
-                  </label>
-                  <input 
-                    type="date" 
-                    className="w-full bg-stone-50 border-stone-200 rounded-xl px-4 py-3 focus:ring-stone-400 transition-all"
-                    value={tripData.startDate}
-                    onChange={(e) => setTripData({...tripData, startDate: e.target.value})}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
-                    <Calendar size={14} /> End Date
-                  </label>
-                  <input 
-                    type="date" 
-                    className="w-full bg-stone-50 border-stone-200 rounded-xl px-4 py-3 focus:ring-stone-400 transition-all"
-                    value={tripData.endDate}
-                    onChange={(e) => setTripData({...tripData, endDate: e.target.value})}
-                  />
-                </div>
-              </div>
+              <LocationDatePreview
+                dateAnalysis={dateAnalysis}
+                startDate={tripData.startDate}
+                endDate={tripData.endDate}
+                onStartDateChange={(value) => {
+                  setUserHasEditedDates(true);
+                  setTripData(prev => ({ ...prev, startDate: value }));
+                }}
+                onEndDateChange={(value) => {
+                  setUserHasEditedDates(true);
+                  setTripData(prev => ({ ...prev, endDate: value }));
+                }}
+                userHasEdited={userHasEditedDates}
+              />
 
               <div className="space-y-2 pt-4">
                 <label className="text-sm font-bold text-stone-400 uppercase tracking-widest">Description</label>

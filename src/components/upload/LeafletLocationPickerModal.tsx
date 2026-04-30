@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Search, X, MapPin } from 'lucide-react';
+import { formatAddressForSearch, truncatePlaceName } from '@/utils/location/formatAddress';
 
 // Leaflet types
 declare global {
@@ -216,7 +217,7 @@ export default function LeafletLocationPickerModal({
   const selectSearchResult = (result: NominatimResult) => {
     const lat = parseFloat(result.lat);
     const lng = parseFloat(result.lon);
-    const placeName = extractPlaceName(result.display_name);
+    const placeName = truncatePlaceName(result.display_name, 50);
 
     setSelectedLocation({ lat, lng, placeName });
     setSearchResults([]);
@@ -321,7 +322,7 @@ export default function LeafletLocationPickerModal({
                   <div className="flex items-start gap-2">
                     <MapPin size={16} className="mt-0.5 flex-shrink-0 text-blue-600" />
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-stone-900">{extractPlaceName(result.display_name)}</p>
+                      <p className="text-sm font-medium text-stone-900">{formatAddressForSearch(result.display_name)}</p>
                     </div>
                   </div>
                 </button>

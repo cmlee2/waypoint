@@ -1,53 +1,100 @@
-import Link from "next/link";
-import { Map as MapIcon, Plus, Upload } from "lucide-react";
+import React from 'react';
+import { auth } from '@clerk/nextjs/server';
+import { createAdminClient } from '@/utils/supabase/server';
+import { MapMarker } from '@/types/map';
+import { Plus } from 'lucide-react';
+import Link from 'next/link';
+import DashboardClient from './DashboardClient';
+import AuthPopup from '@/components/AuthPopup';
 
-export default function Home() {
+export default async function HomePage() {
+  const { userId } = await auth();
+
+  // If user is not authenticated, show auth popup
+  if (!userId) {
+    return <AuthPopup />;
+  }
+
+  const supabase = createAdminClient();
+
+  // Fetch trips and their first photo for the map marker
+  const { data: trips, error } = await supabase
+    .from('trips')
+    .select(`
+      id,
+      name,
+      user_id,
+      is_public,
+      photos (
+        lat,
+        lng,
+        storage_url
+      )
+    `)
+    .or(`user_id.eq.${userId},is_public.eq.true`)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching trips:', error);
+  }
+
+  const validTrips = trips || [];
+  const markers: MapMarker[] = [];
+
+  const clientTrips = validTrips.map((trip) => {
+    // Find the first photo with valid coordinates to use as the trip's pin
+    const firstValidPhoto = trip.photos?.find((p: any) =>
+      typeof p.lat === 'number' && typeof p.lng === 'number' && Number.isFinite(p.lat) && Number.isFinite(p.lng)
+    );
+
+    // Only add marker if trip has GPS coordinates
+    if (firstValidPhoto) {
+      markers.push({
+        id: trip.id,
+        lat: firstValidPhoto.lat,
+        lng: firstValidPhoto.lng,
+        label: trip.name,
+        imageUrl: firstValidPhoto.storage_url
+      });
+    }
+
+    return {
+      id: trip.id,
+      name: trip.name,
+      user_id: trip.user_id,
+      isMine: trip.user_id === userId,
+      coverPhoto: trip.photos?.[0]?.storage_url,
+      photoCount: trip.photos?.length || 0
+    };
+  });
+
+  const defaultCenter = { lat: 20, lng: 0 };
+  const initialCenter = markers.length > 0
+    ? { lat: markers[0].lat, lng: markers[0].lng }
+    : defaultCenter;
+
+  const initialZoom = markers.length > 0 ? 3 : 1;
+
   return (
-    <div className="relative flex-1 flex flex-col items-center justify-center p-6 text-center overflow-hidden">
-      <div className="max-w-md w-full space-y-8">
-        <div className="space-y-4">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center scrapbook-border bg-[var(--muted)]">
-            <MapIcon className="h-8 w-8 text-[var(--foreground)]" />
-          </div>
-          <h2 className="text-3xl font-bold tracking-tight text-[var(--foreground)]">Your Atlas is Empty</h2>
-          <p className="text-lg text-[color:rgba(61,61,61,0.86)]">
-            Every great journey starts with a single photo. Add your first trip to begin building your map.
-          </p>
-        </div>
-
-        <div className="grid gap-4">
-          <Link
-            href="/trips/new"
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-6 py-4 font-semibold text-white shadow-md transition-all hover:brightness-95"
-          >
-            <Plus className="w-5 h-5" />
-            Add Your First Trip
-          </Link>
-          
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-[var(--border)]" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-[var(--background)] px-2 text-[color:rgba(61,61,61,0.72)]">Or</span>
-            </div>
-          </div>
-
-          <Link
-            href="/trips/new?quickUpload=1#photos"
-            className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[var(--foreground)] px-6 py-4 font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]"
-          >
-            <Upload className="w-5 h-5" />
-            Quick Upload
-          </Link>
-        </div>
+    <div className="flex-1 flex flex-col h-[calc(100vh-4rem)]">
+      {/* Dashboard Header/Actions */}
+      <div className="bg-white border-b border-stone-200 px-6 py-4 flex items-center justify-between z-20">
+        <h1 className="text-2xl font-bold text-stone-900 tracking-tight">Your Atlas</h1>
+        <Link
+          href="/trips/new"
+          className="flex items-center gap-2 bg-stone-900 text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-stone-800 transition-colors shadow-sm"
+        >
+          <Plus size={16} />
+          <span className="hidden sm:inline">Add Trip</span>
+        </Link>
       </div>
-      
-      {/* Visual background placeholder for the empty map */}
-      <div className="absolute inset-0 -z-10 opacity-20 pointer-events-none overflow-hidden">
-        <div className="absolute left-1/4 top-1/4 h-64 w-64 rounded-full border-2 border-dashed border-[var(--border)] animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 h-96 w-96 rounded-full border-2 border-dashed border-[var(--border)] animate-pulse delay-700" />
-      </div>
+
+      <DashboardClient
+        trips={clientTrips}
+        markers={markers}
+        initialCenter={initialCenter}
+        initialZoom={initialZoom}
+      />
     </div>
   );
 }
