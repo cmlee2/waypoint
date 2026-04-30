@@ -3,6 +3,7 @@ export interface MapMarker {
   lat: number;
   lng: number;
   label?: string;
+  placeName?: string;
   imageUrl?: string;
 }
 
