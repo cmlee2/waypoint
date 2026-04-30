@@ -45,6 +45,9 @@ next-env.d.ts
 /test-images/
 
 # documentation files - keep local only
+*.md
+!README.md
+.claude/
 CODEX_INSTRUCTIONS.md
 CHANGES_SUMMARY.md
 PUSH_TO_GITHUB.md

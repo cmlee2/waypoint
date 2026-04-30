@@ -29,17 +29,19 @@ export default function NewTripPage() {
 
       // Auto-fill dates if not user-edited
       if (!userHasEditedDates && analysis.hasDates) {
-        if (analysis.dateRange) {
+        const { dateRange, singleDate } = analysis;
+
+        if (dateRange) {
           setTripData(prev => ({
             ...prev,
-            startDate: formatDateForInput(analysis.dateRange.startDate),
-            endDate: formatDateForInput(analysis.dateRange.endDate)
+            startDate: formatDateForInput(dateRange.startDate),
+            endDate: formatDateForInput(dateRange.endDate)
           }));
-        } else if (analysis.singleDate) {
+        } else if (singleDate) {
           setTripData(prev => ({
             ...prev,
-            startDate: formatDateForInput(analysis.singleDate),
-            endDate: formatDateForInput(analysis.singleDate)
+            startDate: formatDateForInput(singleDate),
+            endDate: formatDateForInput(singleDate)
           }));
         }
       }
