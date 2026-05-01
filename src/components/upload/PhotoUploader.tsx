@@ -67,39 +67,54 @@ export default function PhotoUploader({
   }, [hasCheckedForToken]);
 
   const extractMetadata = useCallback(async (file: File) => {
-    console.log(`Extracting metadata from ${file.name}...`);
+    console.log(`📸 Extracting metadata from ${file.name} (${formatFileSize(file.size)})...`);
 
-    const metadata = await exifr.parse(file, [
-      'latitude',
-      'longitude',
-      'DateTimeOriginal',
-      'DateTimeDigitized',
-      'CreateDate',
-      'ModifyDate',
-    ]);
+    try {
+      // Try multiple extraction methods
+      const metadata = await exifr.parse(file, {
+        pick: ['latitude', 'longitude', 'DateTimeOriginal', 'DateTimeDigitized', 'CreateDate', 'ModifyDate'],
+        translateValues: false,
+        sanitize: false
+      });
 
-    console.log(`EXIF data for ${file.name}:`, {
-      hasLatitude: typeof metadata?.latitude === 'number',
-      hasLongitude: typeof metadata?.longitude === 'number',
-      latitude: metadata?.latitude,
-      longitude: metadata?.longitude,
-      hasDateTimeOriginal: !!metadata?.DateTimeOriginal,
-      dateTimeOriginal: metadata?.DateTimeOriginal,
-      allMetadata: metadata
-    });
+      console.log(`✅ EXIF data for ${file.name}:`, {
+        hasLatitude: typeof metadata?.latitude === 'number',
+        hasLongitude: typeof metadata?.longitude === 'number',
+        latitude: metadata?.latitude,
+        longitude: metadata?.longitude,
+        hasDateTimeOriginal: !!metadata?.DateTimeOriginal,
+        dateTimeOriginal: metadata?.DateTimeOriginal,
+        rawMetadata: metadata
+      });
 
-    const takenAt =
-      metadata?.DateTimeOriginal ??
-      metadata?.DateTimeDigitized ??
-      metadata?.CreateDate ??
-      metadata?.ModifyDate ??
-      (file.lastModified ? new Date(file.lastModified) : undefined);
+      const takenAt =
+        metadata?.DateTimeOriginal ??
+        metadata?.DateTimeDigitized ??
+        metadata?.CreateDate ??
+        metadata?.ModifyDate ??
+        (file.lastModified ? new Date(file.lastModified) : undefined);
 
-    return {
-      lat: typeof metadata?.latitude === 'number' ? metadata.latitude : undefined,
-      lng: typeof metadata?.longitude === 'number' ? metadata.longitude : undefined,
-      takenAt: takenAt instanceof Date && !Number.isNaN(takenAt.getTime()) ? takenAt : undefined,
-    };
+      const result = {
+        lat: typeof metadata?.latitude === 'number' ? metadata.latitude : undefined,
+        lng: typeof metadata?.longitude === 'number' ? metadata.longitude : undefined,
+        takenAt: takenAt instanceof Date && !Number.isNaN(takenAt.getTime()) ? takenAt : undefined,
+      };
+
+      console.log(`📍 GPS result for ${file.name}:`, {
+        hasGPS: result.lat !== undefined && result.lng !== undefined,
+        lat: result.lat,
+        lng: result.lng
+      });
+
+      return result;
+    } catch (error) {
+      console.error(`❌ Failed to extract metadata from ${file.name}:`, error);
+      return {
+        lat: undefined,
+        lng: undefined,
+        takenAt: file.lastModified ? new Date(file.lastModified) : undefined,
+      };
+    }
   }, []);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
@@ -112,16 +127,9 @@ export default function PhotoUploader({
       const newPhotos: PhotoPreview[] = await Promise.all(
         filesToProcess.map(async (file) => {
           try {
-            const { lat, lng, takenAt } = await extractMetadata(file);
+            console.log(`🔄 Processing ${file.name}...`);
 
-            // Debug logging
-            console.log(`Processing ${file.name}:`, {
-              hasGPS: lat !== undefined && lng !== undefined,
-              lat,
-              lng,
-              takenAt,
-              originalSize: formatFileSize(file.size)
-            });
+            const { lat, lng, takenAt } = await extractMetadata(file);
 
             // Compress image first to prevent 413 errors
             const compressed = await compressImage(file, {
@@ -131,7 +139,8 @@ export default function PhotoUploader({
               format: 'image/jpeg'
             });
 
-            console.log(`Compressed ${file.name}: ${formatFileSize(file.size)} → ${formatFileSize(compressed.size)}`);
+            console.log(`✅ Compressed ${file.name}: ${formatFileSize(file.size)} → ${formatFileSize(compressed.size)}`);
+            console.log(`📍 GPS preserved: ${lat !== undefined && lng !== undefined ? 'YES' : 'NO'}`);
 
             return {
               file: compressed.file,
@@ -264,70 +273,12 @@ export default function PhotoUploader({
   };
 
   const handleGoogleAuth = () => {
-    // Open OAuth flow in popup window
-    const width = 600;
-    const height = 700;
-    const left = window.screenX + (window.innerWidth - width) / 2;
-    const top = window.screenY + (window.innerHeight - height) / 2;
-
-    // Get current URL to return to after OAuth
+    // Use current page redirect instead of popup to avoid Cross-Origin-Opener-Policy issues
     const returnUrl = window.location.pathname + window.location.search;
-
     const authUrl = `/api/google/oauth?action=authorize&returnUrl=${encodeURIComponent(returnUrl)}`;
-    const popup = window.open(
-      authUrl,
-      'google-auth',
-      `width=${width},height=${height},left=${left},top=${top},toolbar=no,location=no,status=no,menubar=no`
-    );
 
-    if (!popup) {
-      alert('Popup blocked! Please allow popups for this site to connect to Google Photos.');
-      return;
-    }
-
-    // Poll for the popup being closed or completing
-    const checkPopup = setInterval(() => {
-      if (popup.closed) {
-        clearInterval(checkPopup);
-        return;
-      }
-
-      try {
-        // Check if popup has redirected back to our site
-        const popupUrl = popup.location.href;
-        if (popupUrl && popupUrl.includes('google_token=')) {
-          const url = new URL(popupUrl);
-          const token = url.searchParams.get('google_token');
-
-          if (token) {
-            setGoogleAccessToken(token);
-            setGooglePhotosOpen(true);
-            popup.close();
-            clearInterval(checkPopup);
-          }
-        }
-
-        // Check for error
-        if (popupUrl && popupUrl.includes('error=')) {
-          const url = new URL(popupUrl);
-          const error = url.searchParams.get('error');
-          alert(`Google authorization failed: ${error}`);
-          popup.close();
-          clearInterval(checkPopup);
-        }
-      } catch (e) {
-        // Cross-origin restrictions - can't access popup.location
-        // This is expected while on Google domains
-      }
-    }, 500);
-
-    // Fallback: check when popup is closed
-    const checkPopupClosed = setInterval(() => {
-      if (popup.closed) {
-        clearInterval(checkPopup);
-        clearInterval(checkPopupClosed);
-      }
-    }, 1000);
+    // Redirect to OAuth flow instead of using popup
+    window.location.href = authUrl;
   };
 
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({

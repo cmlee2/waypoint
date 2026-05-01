@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     const state = crypto.randomUUID(); // Use random state for security
 
     // Store the current URL in state so we can redirect back after OAuth
-    const returnUrl = request.nextUrl.searchParams.get('returnUrl') || '/trips/new';
+    const returnUrl = searchParams.get('returnUrl') || '/trips/new';
 
     const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     authUrl.searchParams.append('client_id', process.env.GOOGLE_CLIENT_ID || '');
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     authUrl.searchParams.append('access_type', 'offline');
     authUrl.searchParams.append('prompt', 'consent');
 
-    console.log('OAuth Request:', {
+    console.log('🔑 OAuth Request:', {
       scope: GOOGLE_PHOTOS_SCOPE,
       redirectUri: REDIRECT_URI,
       clientId: process.env.GOOGLE_CLIENT_ID,
