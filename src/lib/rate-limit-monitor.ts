@@ -10,10 +10,12 @@ interface RateLimitInfo {
   message?: string;
 }
 
+type RateLimitLogInput = Omit<RateLimitInfo, 'timestamp'>;
+
 const rateLimitLog: RateLimitInfo[] = [];
 const MAX_LOG_ENTRIES = 100;
 
-export function logRateLimitHit(info: RateLimitInfo): void {
+export function logRateLimitHit(info: RateLimitLogInput): void {
   console.warn(`[RateLimit] ${info.service}: ${info.statusCode} - ${info.endpoint}`);
   rateLimitLog.push({ ...info, timestamp: new Date() });
 
