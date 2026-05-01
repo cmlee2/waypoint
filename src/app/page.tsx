@@ -7,18 +7,13 @@ import Link from 'next/link';
 import DashboardClient from './dashboard/DashboardClient';
 import AuthPopup from '@/components/AuthPopup';
 
+export const dynamic = 'force-dynamic';
+
 export default async function HomePage() {
   const { userId } = await auth();
-
-  // If user is not authenticated, show auth popup
-  if (!userId) {
-    return <AuthPopup />;
-  }
-
   const supabase = createAdminClient();
 
-  // Fetch trips and their first photo for the map marker
-  const { data: trips, error } = await supabase
+  let tripQuery = supabase
     .from('trips')
     .select(`
       id,
@@ -31,8 +26,15 @@ export default async function HomePage() {
         storage_url
       )
     `)
-    .or(`user_id.eq.${userId},is_public.eq.true`)
     .order('created_at', { ascending: false });
+
+  if (userId) {
+    tripQuery = tripQuery.or(`user_id.eq.${userId},is_public.eq.true`);
+  } else {
+    tripQuery = tripQuery.eq('is_public', true);
+  }
+
+  const { data: trips, error } = await tripQuery;
 
   if (error) {
     console.error('Error fetching trips:', error);
@@ -54,7 +56,11 @@ export default async function HomePage() {
         lat: firstValidPhoto.lat,
         lng: firstValidPhoto.lng,
         label: trip.name,
-        imageUrl: firstValidPhoto.storage_url
+        imageUrl: firstValidPhoto.storage_url,
+        tripName: trip.name,
+        photoCount: trip.photos?.length || 0,
+        isPublic: Boolean(trip.is_public),
+        isMine: trip.user_id === userId,
       });
     }
 
@@ -79,14 +85,22 @@ export default async function HomePage() {
     <div className="flex-1 flex flex-col h-[calc(100vh-4rem)]">
       {/* Dashboard Header/Actions */}
       <div className="bg-white border-b border-stone-200 px-6 py-4 flex items-center justify-between z-20">
-        <h1 className="text-2xl font-bold text-stone-900 tracking-tight">Your Atlas</h1>
-        <Link
-          href="/trips/new"
-          className="flex items-center gap-2 bg-stone-900 text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-stone-800 transition-colors shadow-sm"
-        >
-          <Plus size={16} />
-          <span className="hidden sm:inline">Add Trip</span>
-        </Link>
+        <h1 className="text-2xl font-bold text-stone-900 tracking-tight">
+          {userId ? 'Your Atlas' : 'Shared Atlas'}
+        </h1>
+        {userId ? (
+          <Link
+            href="/trips/new"
+            className="flex items-center gap-2 bg-stone-900 text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-stone-800 transition-colors shadow-sm"
+          >
+            <Plus size={16} />
+            <span className="hidden sm:inline">Add Trip</span>
+          </Link>
+        ) : (
+          <div className="text-sm text-stone-500">
+            Explore public trips or sign in to create your own.
+          </div>
+        )}
       </div>
 
       <DashboardClient
@@ -94,7 +108,9 @@ export default async function HomePage() {
         markers={markers}
         initialCenter={initialCenter}
         initialZoom={initialZoom}
+        isAuthenticated={Boolean(userId)}
       />
+      {!userId && <AuthPopup />}
     </div>
   );
 }

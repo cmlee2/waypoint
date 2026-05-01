@@ -128,6 +128,32 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Import error:', error);
+
+    // Check for rate limit errors from Google API
+    if (error instanceof Error) {
+      if (error.message.includes('429') || error.message.includes('rateLimitExceeded')) {
+        return NextResponse.json(
+          {
+            error: 'Rate limit exceeded',
+            details: 'Google Photos API rate limit reached. Please try again in a few minutes.',
+            code: 'RATE_LIMIT_EXCEEDED'
+          },
+          { status: 429 }
+        );
+      }
+
+      if (error.message.includes('quota') || error.message.includes('QUOTA_EXCEEDED')) {
+        return NextResponse.json(
+          {
+            error: 'Quota exceeded',
+            details: 'Google Photos API daily quota reached. Please try again tomorrow.',
+            code: 'QUOTA_EXCEEDED'
+          },
+          { status: 429 }
+        );
+      }
+    }
+
     return NextResponse.json(
       { error: 'Import failed', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }

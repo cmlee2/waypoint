@@ -5,7 +5,7 @@ import { useDropzone } from 'react-dropzone';
 import exifr from 'exifr';
 import { Camera, X, MapPin, Calendar, Loader2, Image as ImageIcon } from 'lucide-react';
 import LeafletLocationPickerModal from './LeafletLocationPickerModal';
-// import GooglePhotosPicker from '@/components/GooglePhotosPicker';
+import GooglePhotosPicker from '@/components/GooglePhotosPicker';
 import { compressImage, formatFileSize } from '@/utils/imageCompression';
 import { GooglePhoto, createGooglePhotosClient } from '@/utils/google/photos';
 
@@ -221,23 +221,68 @@ export default function PhotoUploader({
     }
   };
 
-  const handleGoogleAuth = async () => {
-    try {
-      // Initiate OAuth flow
-      const response = await fetch('/api/google/oauth?action=authorize');
+  const handleGoogleAuth = () => {
+    // Open OAuth flow in popup window
+    const width = 600;
+    const height = 700;
+    const left = window.screenX + (window.innerWidth - width) / 2;
+    const top = window.screenY + (window.innerHeight - height) / 2;
 
-      if (!response.ok) {
-        throw new Error('Failed to initiate OAuth flow');
+    const authUrl = '/api/google/oauth?action=authorize';
+    const popup = window.open(
+      authUrl,
+      'google-auth',
+      `width=${width},height=${height},left=${left},top=${top},toolbar=no,location=no,status=no,menubar=no`
+    );
+
+    if (!popup) {
+      alert('Popup blocked! Please allow popups for this site to connect to Google Photos.');
+      return;
+    }
+
+    // Poll for the popup being closed or completing
+    const checkPopup = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(checkPopup);
+        return;
       }
 
-      // The response will be a redirect to Google's OAuth page
-      // In a real implementation, you'd handle the callback
-      // For now, we'll show a message
-      alert('Google Photos OAuth flow initiated. Please complete the authorization in the popup.');
-    } catch (error) {
-      console.error('Google Auth error:', error);
-      alert('Failed to connect to Google Photos. Please try again.');
-    }
+      try {
+        // Check if popup has redirected back to our site
+        const popupUrl = popup.location.href;
+        if (popupUrl && popupUrl.includes('google_token=')) {
+          const url = new URL(popupUrl);
+          const token = url.searchParams.get('google_token');
+
+          if (token) {
+            setGoogleAccessToken(token);
+            setGooglePhotosOpen(true);
+            popup.close();
+            clearInterval(checkPopup);
+          }
+        }
+
+        // Check for error
+        if (popupUrl && popupUrl.includes('error=')) {
+          const url = new URL(popupUrl);
+          const error = url.searchParams.get('error');
+          alert(`Google authorization failed: ${error}`);
+          popup.close();
+          clearInterval(checkPopup);
+        }
+      } catch (e) {
+        // Cross-origin restrictions - can't access popup.location
+        // This is expected while on Google domains
+      }
+    }, 500);
+
+    // Fallback: check when popup is closed
+    const checkPopupClosed = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(checkPopup);
+        clearInterval(checkPopupClosed);
+      }
+    }, 1000);
   };
 
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
@@ -289,7 +334,7 @@ export default function PhotoUploader({
       </div>
 
       {/* Google Photos Import - DISABLED FOR NOW */}
-      {/* <div className="flex items-center justify-center gap-4">
+      <div className="flex items-center justify-center gap-4">
         <div className="h-px flex-1 bg-stone-200" />
         <span className="text-sm text-stone-400">or</span>
         <div className="h-px flex-1 bg-stone-200" />
@@ -312,7 +357,7 @@ export default function PhotoUploader({
             <span className="text-stone-700 font-medium">Import from Google Photos</span>
           </>
         )}
-      </button> */}
+      </button>
 
       {/* Photo List */}
       {photos.length > 0 && (
@@ -428,14 +473,14 @@ export default function PhotoUploader({
         }}
       />
 
-      {/* Google Photos Picker - DISABLED FOR NOW */}
-      {/* <GooglePhotosPicker
+      {/* Google Photos Picker */}
+      <GooglePhotosPicker
         isOpen={googlePhotosOpen}
         onClose={() => setGooglePhotosOpen(false)}
         onPhotosSelected={handleGooglePhotosImport}
         accessToken={googleAccessToken || ''}
         maxPhotos={15 - photos.length}
-      /> */}
+      />
     </div>
   );
 }

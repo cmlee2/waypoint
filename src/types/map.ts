@@ -5,6 +5,11 @@ export interface MapMarker {
   label?: string;
   placeName?: string;
   imageUrl?: string;
+  // Fields for hover popups
+  tripName?: string;
+  photoCount?: number;
+  isPublic?: boolean;
+  isMine?: boolean;
 }
 
 export interface TripMapProps {

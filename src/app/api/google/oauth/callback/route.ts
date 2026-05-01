@@ -1,0 +1,87 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
+
+/**
+ * Google OAuth callback handler
+ * Receives the authorization code from Google and exchanges it for tokens
+ */
+
+export async function GET(request: NextRequest) {
+  const { userId } = await auth();
+
+  if (!userId) {
+    return NextResponse.redirect(new URL('/?error=unauthorized', request.url));
+  }
+
+  const searchParams = request.nextUrl.searchParams;
+  const code = searchParams.get('code');
+  const state = searchParams.get('state');
+  const error = searchParams.get('error');
+
+  if (error) {
+    // User denied the authorization or other error
+    return NextResponse.redirect(
+      new URL(`/trips/new?error=${encodeURIComponent(error)}`, request.url)
+    );
+  }
+
+  if (!code) {
+    return NextResponse.redirect(
+      new URL('/trips/new?error=no_code', request.url)
+    );
+  }
+
+  // Verify state parameter (protection against CSRF)
+  const storedState = request.cookies.get('google_oauth_state')?.value;
+  if (!state || !storedState || state !== storedState) {
+    return NextResponse.redirect(
+      new URL('/trips/new?error=invalid_state', request.url)
+    );
+  }
+
+  try {
+    // Exchange authorization code for access token
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        client_id: process.env.GOOGLE_CLIENT_ID || '',
+        client_secret: process.env.GOOGLE_CLIENT_SECRET || '',
+        code,
+        grant_type: 'authorization_code',
+        redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/google/oauth/callback`,
+      }),
+    });
+
+    if (!tokenResponse.ok) {
+      const errorData = await tokenResponse.json();
+      console.error('Token exchange failed:', errorData);
+      return NextResponse.redirect(
+        new URL(`/trips/new?error=token_exchange_failed`, request.url)
+      );
+    }
+
+    const tokenData = await tokenResponse.json();
+
+    // Clear the state cookie
+    const response = NextResponse.redirect(
+      new URL(`/trips/new?google_token=${tokenData.access_token}`, request.url)
+    );
+    response.cookies.delete('google_oauth_state');
+
+    // Option 1: Pass token in URL (simple but less secure, token in browser history)
+    // This is okay for short-lived access tokens
+    return response;
+
+    // Option 2: Store in database and pass a session ID (more secure, recommended for production)
+    // In production, store tokenData.refresh_token in database linked to userId
+    // Then redirect with a short-lived session ID instead of the actual token
+  } catch (error) {
+    console.error('OAuth callback error:', error);
+    return NextResponse.redirect(
+      new URL('/trips/new?error=callback_error', request.url)
+    );
+  }
+}

@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Search, X, MapPin } from 'lucide-react';
 import { formatAddressForSearch, truncatePlaceName } from '@/utils/location/formatAddress';
+import { handleApiError } from '@/lib/rate-limit-monitor';
 
 // Leaflet types
 declare global {
@@ -70,6 +71,9 @@ export default function LeafletLocationPickerModal({
   const [searchResults, setSearchResults] = useState<NominatimResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<SelectedLocation | null>(null);
+  const lastRequestTimeRef = useRef<number>(0);
+  const searchCacheRef = useRef<Map<string, NominatimResult[]>>(new Map());
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load Leaflet CSS
   useEffect(() => {
@@ -181,13 +185,31 @@ export default function LeafletLocationPickerModal({
     setSearchQuery('');
     setSearchResults([]);
     setSelectedLocation(getInitialLocation(initialLat, initialLng));
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
   }, [initialLat, initialLng, isOpen]);
 
-  const handleSearch = async () => {
-    const query = searchQuery.trim();
-    if (!query) return;
+  const performSearch = async (query: string) => {
+    // Check cache first
+    const cached = searchCacheRef.current.get(query.toLowerCase());
+    if (cached) {
+      setSearchResults(cached);
+      setIsSearching(false);
+      return;
+    }
 
-    setIsSearching(true);
+    // Enforce minimum 1 second delay between requests (Nominatim requirement)
+    const now = Date.now();
+    const timeSinceLastRequest = now - lastRequestTimeRef.current;
+    const MIN_DELAY_MS = 1000; // 1 second minimum
+
+    if (timeSinceLastRequest < MIN_DELAY_MS) {
+      await new Promise(resolve => setTimeout(resolve, MIN_DELAY_MS - timeSinceLastRequest));
+    }
 
     try {
       // Use Nominatim (free OpenStreetMap geocoding)
@@ -200,19 +222,84 @@ export default function LeafletLocationPickerModal({
         }
       );
 
-      if (!response.ok) {
-        throw new Error('Geocoding failed');
+      // Check for rate limit error
+      if (response.status === 429) {
+        const errorData = await response.text().catch(() => 'Rate limit exceeded');
+        throw new Error(`Nominatim rate limit exceeded: ${errorData}`);
       }
 
-      const data = await response.json();
-      setSearchResults(data || []);
+      if (!response.ok) {
+        throw new Error(`Geocoding failed: ${response.status}`);
+      }
+
+      const data = (await response.json()) as NominatimResult[];
+      const results = data || [];
+
+      // Cache the results (limit cache size to avoid memory leaks)
+      if (searchCacheRef.current.size > 50) {
+        const firstKey = searchCacheRef.current.keys().next().value;
+        if (firstKey) searchCacheRef.current.delete(firstKey);
+      }
+      searchCacheRef.current.set(query.toLowerCase(), results);
+
+      setSearchResults(results);
+      lastRequestTimeRef.current = Date.now();
     } catch (error) {
-      console.error('Search error:', error);
-      setSearchResults([]);
+      const handled = handleApiError(error, {
+        service: 'Nominatim',
+        endpoint: 'nominatim.openstreetmap.org/search'
+      });
+
+      if (handled.isRateLimited) {
+        setSearchResults([]);
+      } else {
+        console.error('Search error:', error);
+        setSearchResults([]);
+      }
     } finally {
       setIsSearching(false);
     }
   };
+
+  const handleSearch = async () => {
+    const query = searchQuery.trim();
+    if (!query) return;
+
+    setIsSearching(true);
+
+    // Clear any pending timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    // Execute search immediately (respecting rate limiting)
+    await performSearch(query);
+  };
+
+  // Debounced search on input change (1 second delay)
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    // Clear existing timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    // Set new timeout for debounced search
+    searchTimeoutRef.current = setTimeout(() => {
+      setIsSearching(true);
+      void performSearch(searchQuery.trim());
+    }, 1000); // 1 second debounce
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchQuery]);
 
   const selectSearchResult = (result: NominatimResult) => {
     const lat = parseFloat(result.lat);

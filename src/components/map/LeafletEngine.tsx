@@ -5,12 +5,18 @@ import dynamic from 'next/dynamic';
 import { TripMapProps } from '@/types/map';
 import { truncatePlaceName } from '@/utils/location/formatAddress';
 import 'leaflet/dist/leaflet.css';
+import 'react-leaflet-markercluster/styles';
 
 // Dynamically import Leaflet components (no SSR)
 const MapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapContainer), { ssr: false });
 const TileLayer = dynamic(() => import('react-leaflet').then(mod => mod.TileLayer), { ssr: false });
 const Marker = dynamic(() => import('react-leaflet').then(mod => mod.Marker), { ssr: false });
+const Popup = dynamic(() => import('react-leaflet').then(mod => mod.Popup), { ssr: false });
 const ZoomControl = dynamic(() => import('react-leaflet').then(mod => mod.ZoomControl), { ssr: false });
+const MarkerClusterGroup = dynamic(
+  () => import('react-leaflet-markercluster').then(mod => mod.default),
+  { ssr: false }
+);
 
 // CartoDB Positron - Minimalist light style
 const TILE_LAYER_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
@@ -66,16 +72,41 @@ export default function LeafletEngine({
         />
         <ZoomControl position="topright" />
         
-        {markers.map((marker) => (
-          <Marker
-            key={marker.id}
-            position={[marker.lat, marker.lng]}
-            icon={createMarkerIcon(marker.placeName)}
-            eventHandlers={{
-              click: () => onMarkerClick?.(marker.id),
-            }}
-          />
-        ))}
+        <MarkerClusterGroup>
+          {markers.map((marker) => (
+            <Marker
+              key={marker.id}
+              position={[marker.lat, marker.lng]}
+              icon={createMarkerIcon(marker.placeName)}
+              eventHandlers={{
+                click: () => onMarkerClick?.(marker.id),
+              }}
+            >
+              <Popup>
+                <div className="p-2 min-w-[200px]">
+                  {marker.imageUrl && (
+                    <img
+                      src={marker.imageUrl}
+                      alt={marker.tripName || marker.label || 'Trip'}
+                      className="w-full h-24 object-cover rounded-lg mb-2"
+                    />
+                  )}
+                  <h3 className="font-bold text-stone-900">
+                    {marker.tripName || marker.label || 'Trip'}
+                  </h3>
+                  <p className="text-sm text-stone-600 mt-1">
+                    {marker.photoCount || 0} memories
+                    {marker.isPublic && !marker.isMine && (
+                      <span className="ml-2 bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider text-[10px]">
+                        Shared
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+        </MarkerClusterGroup>
       </MapContainer>
     </div>
   );
