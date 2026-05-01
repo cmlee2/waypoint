@@ -27,6 +27,11 @@ body {
   border-radius: 12px;
   border: 2px solid #fbbf24;
   box-shadow: 0 10px 25px rgba(139, 69, 19, 0.2);
+  pointer-events: none; /* Prevent popup from interfering with hover */
+}
+
+.leaflet-popup-content {
+  pointer-events: auto; /* Re-enable pointer events for content */
 }
 
 .leaflet-popup-tip {

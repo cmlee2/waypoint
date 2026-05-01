@@ -44,6 +44,15 @@ export default function GooglePhotosPicker({
     }
 
     try {
+      // Validate token first
+      console.log('Validating Google Photos token...');
+      const isTokenValid = await client.validateToken();
+
+      if (!isTokenValid) {
+        throw new Error('Invalid or expired Google Photos access token. Please try authorizing again.');
+      }
+
+      console.log('Token validated successfully, loading photos...');
       const result = await rateLimiter.execute(() =>
         client.listPhotos(50, pageToken)
       );

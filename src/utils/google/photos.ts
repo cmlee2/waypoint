@@ -41,6 +41,52 @@ export class GooglePhotosClient {
 
   constructor(accessToken: string) {
     this.accessToken = accessToken;
+    console.log('GooglePhotosClient initialized with token:', {
+      hasToken: !!accessToken,
+      tokenLength: accessToken?.length,
+      tokenPrefix: accessToken?.substring(0, 20) + '...'
+    });
+  }
+
+  /**
+   * Validates the access token by checking token info
+   */
+  async validateToken(): Promise<boolean> {
+    try {
+      const response = await fetch('https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=' + this.accessToken);
+      const data = await response.json();
+
+      console.log('Token validation result:', {
+        valid: response.ok,
+        scopes: data.scope,
+        expires_in: data.expires_in
+      });
+
+      if (!response.ok) {
+        console.error('Token validation failed:', data);
+        return false;
+      }
+
+      // Check if the token has the required scopes
+      const requiredScopes = [
+        'https://www.googleapis.com/auth/photoslibrary.readonly',
+        'https://www.googleapis.com/auth/photoslibrary'
+      ];
+
+      const tokenScopes = data.scope || '';
+      const hasRequiredScopes = requiredScopes.some(scope => tokenScopes.includes(scope));
+
+      console.log('Scope check:', {
+        hasRequiredScopes,
+        tokenScopes,
+        requiredScopes
+      });
+
+      return hasRequiredScopes;
+    } catch (error) {
+      console.error('Token validation error:', error);
+      return false;
+    }
   }
 
   /**
@@ -56,6 +102,12 @@ export class GooglePhotosClient {
       url.searchParams.append('pageToken', pageToken);
     }
 
+    console.log('Google Photos API Request:', {
+      url: url.toString(),
+      hasAccessToken: !!this.accessToken,
+      accessTokenLength: this.accessToken?.length
+    });
+
     const response = await fetch(url.toString(), {
       method: 'POST',
       headers: {
@@ -68,8 +120,15 @@ export class GooglePhotosClient {
       }),
     });
 
+    console.log('Google Photos API Response:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok
+    });
+
     if (!response.ok) {
       const error = await response.json();
+      console.error('Google Photos API Error:', error);
       throw new Error(`Failed to list photos: ${error.error?.message || response.statusText}`);
     }
 

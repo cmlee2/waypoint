@@ -45,6 +45,22 @@ export default function PhotoUploader({
   const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
   const [isImportingFromGoogle, setIsImportingFromGoogle] = useState(false);
 
+  // Extract Google token from URL on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('google_token');
+    if (token) {
+      console.log('Google Photos token found in URL:', token.substring(0, 20) + '...');
+      setGoogleAccessToken(token);
+      setGooglePhotosOpen(true);
+
+      // Clean up URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete('google_token');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, []);
+
   const extractMetadata = useCallback(async (file: File) => {
     const metadata = await exifr.parse(file, [
       'latitude',
@@ -80,6 +96,15 @@ export default function PhotoUploader({
         filesToProcess.map(async (file) => {
           try {
             const { lat, lng, takenAt } = await extractMetadata(file);
+
+            // Debug logging
+            console.log(`Processing ${file.name}:`, {
+              hasGPS: lat !== undefined && lng !== undefined,
+              lat,
+              lng,
+              takenAt,
+              originalSize: formatFileSize(file.size)
+            });
 
             // Compress image first to prevent 413 errors
             const compressed = await compressImage(file, {

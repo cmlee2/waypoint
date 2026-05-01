@@ -68,11 +68,11 @@ export default function LeafletEngine({
         <div class="flex flex-col items-center travel-marker">
           <div class="relative">
             <svg class="w-8 h-8 drop-shadow-lg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#8B4513" stroke="#5D3A1A" stroke-width="1"/>
-              <circle cx="12" cy="9" r="1.5" fill="#FEF3E2"/>
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#DC2626" stroke="#991B1B" stroke-width="1"/>
+              <circle cx="12" cy="9" r="1.5" fill="#FEF2F2"/>
             </svg>
           </div>
-          ${truncatedName ? `<div class="mt-1 px-3 py-1.5 bg-amber-50/90 backdrop-blur-sm rounded-lg shadow-md border border-amber-200 text-xs font-semibold text-amber-900 whitespace-nowrap max-w-[150px] overflow-hidden text-ellipsis">${truncatedName}</div>` : ''}
+          ${truncatedName ? `<div class="mt-1 px-3 py-1.5 bg-red-50/90 backdrop-blur-sm rounded-lg shadow-md border border-red-200 text-xs font-semibold text-red-900 whitespace-nowrap max-w-[150px] overflow-hidden text-ellipsis">${truncatedName}</div>` : ''}
         </div>
       `,
       iconSize: [32, 32],
@@ -111,7 +111,10 @@ export default function LeafletEngine({
                   e.target.openPopup();
                 },
                 mouseout: (e) => {
-                  e.target.closePopup();
+                  // Add small delay to prevent flickering
+                  setTimeout(() => {
+                    e.target.closePopup();
+                  }, 100);
                 }
               }}
             >
