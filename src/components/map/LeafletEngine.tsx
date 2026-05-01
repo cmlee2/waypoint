@@ -14,7 +14,16 @@ const Marker = dynamic(() => import('react-leaflet').then(mod => mod.Marker), { 
 const Popup = dynamic(() => import('react-leaflet').then(mod => mod.Popup), { ssr: false });
 const ZoomControl = dynamic(() => import('react-leaflet').then(mod => mod.ZoomControl), { ssr: false });
 const MarkerClusterGroup = dynamic(
-  () => import('react-leaflet-markercluster').then(mod => mod.default),
+  async () => {
+    const mod = await import('react-leaflet-markercluster');
+    const ClusterGroup = mod.default as React.ComponentType<React.PropsWithChildren<object>>;
+
+    return function MarkerClusterGroupWrapper({
+      children,
+    }: React.PropsWithChildren<object>) {
+      return <ClusterGroup>{children}</ClusterGroup>;
+    };
+  },
   { ssr: false }
 );
 
