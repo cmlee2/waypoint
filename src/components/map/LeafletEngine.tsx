@@ -39,6 +39,7 @@ export default function LeafletEngine({
   className 
 }: TripMapProps) {
   const [L, setL] = useState<any>(null);
+  const [mapInstance, setMapInstance] = useState<any>(null);
 
   useEffect(() => {
     // Import Leaflet directly for its L object (for icon creation)
@@ -47,40 +48,57 @@ export default function LeafletEngine({
     });
   }, []);
 
+  // Handle map resize when container changes
+  useEffect(() => {
+    if (mapInstance) {
+      setTimeout(() => {
+        mapInstance.invalidateSize();
+      }, 100);
+    }
+  }, [mapInstance]);
+
   if (!L) return <div className={`${className} bg-stone-50 rounded-xl`} />;
 
-  // Create a custom marker icon with truncated place name
+  // Create a custom travel-themed marker icon
   const createMarkerIcon = (placeName?: string) => {
     const truncatedName = truncatePlaceName(placeName || '', 25);
     return L.divIcon({
       className: 'custom-div-icon',
       html: `
-        <div class="flex flex-col items-center">
-          <div class="w-6 h-6 bg-stone-800 rounded-full border-2 border-white shadow-md flex items-center justify-center">
-            <div class="w-2 h-2 bg-white rounded-full"></div>
+        <div class="flex flex-col items-center travel-marker">
+          <div class="relative">
+            <svg class="w-8 h-8 drop-shadow-lg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#8B4513" stroke="#5D3A1A" stroke-width="1"/>
+              <circle cx="12" cy="9" r="1.5" fill="#FEF3E2"/>
+            </svg>
           </div>
-          ${truncatedName ? `<div class="mt-1 px-2 py-1 bg-white rounded-md shadow-sm text-xs font-medium text-stone-700 whitespace-nowrap max-w-[150px] overflow-hidden text-ellipsis">${truncatedName}</div>` : ''}
+          ${truncatedName ? `<div class="mt-1 px-3 py-1.5 bg-amber-50/90 backdrop-blur-sm rounded-lg shadow-md border border-amber-200 text-xs font-semibold text-amber-900 whitespace-nowrap max-w-[150px] overflow-hidden text-ellipsis">${truncatedName}</div>` : ''}
         </div>
       `,
-      iconSize: [24, 24],
-      iconAnchor: [12, 24]
+      iconSize: [32, 32],
+      iconAnchor: [16, 32]
     });
   };
 
   return (
-    <div className={`${className} overflow-hidden rounded-xl border-2 border-stone-200 shadow-sm relative z-0`}>
+    <div className={`${className} overflow-hidden rounded-xl border-2 border-amber-200 shadow-lg relative z-0 bg-gradient-to-br from-amber-50 to-orange-50`}>
       <MapContainer
         center={[center.lat, center.lng]}
         zoom={zoom}
         zoomControl={false}
         className="w-full h-full"
+        ref={(map) => {
+          if (map && !mapInstance) {
+            setMapInstance(map);
+          }
+        }}
       >
         <TileLayer
           url={TILE_LAYER_URL}
           attribution={ATTRIBUTION}
         />
         <ZoomControl position="topright" />
-        
+
         <MarkerClusterGroup>
           {markers.map((marker) => (
             <Marker
@@ -89,28 +107,49 @@ export default function LeafletEngine({
               icon={createMarkerIcon(marker.placeName)}
               eventHandlers={{
                 click: () => onMarkerClick?.(marker.id),
+                mouseover: (e) => {
+                  e.target.openPopup();
+                },
+                mouseout: (e) => {
+                  e.target.closePopup();
+                }
               }}
             >
-              <Popup>
-                <div className="p-2 min-w-[200px]">
+              <Popup className="travel-popup">
+                <div className="p-3 min-w-[220px] bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl">
                   {marker.imageUrl && (
-                    <img
-                      src={marker.imageUrl}
-                      alt={marker.tripName || marker.label || 'Trip'}
-                      className="w-full h-24 object-cover rounded-lg mb-2"
-                    />
+                    <div className="relative mb-3">
+                      <img
+                        src={marker.imageUrl}
+                        alt={marker.tripName || marker.label || 'Trip'}
+                        className="w-full h-28 object-cover rounded-lg shadow-md border-2 border-amber-200"
+                      />
+                      <div className="absolute inset-0 rounded-lg shadow-inner border border-white/20"></div>
+                    </div>
                   )}
-                  <h3 className="font-bold text-stone-900">
-                    {marker.tripName || marker.label || 'Trip'}
-                  </h3>
-                  <p className="text-sm text-stone-600 mt-1">
-                    {marker.photoCount || 0} memories
-                    {marker.isPublic && !marker.isMine && (
-                      <span className="ml-2 bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider text-[10px]">
-                        Shared
+                  <div className="space-y-2">
+                    <h3 className="font-bold text-amber-900 text-lg leading-tight">
+                      {marker.tripName || marker.label || 'Trip'}
+                    </h3>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-amber-700 font-medium">
+                        {marker.photoCount || 0} memories
                       </span>
+                      {marker.isPublic && !marker.isMine && (
+                        <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider text-[10px] border border-amber-200">
+                          Shared
+                        </span>
+                      )}
+                    </div>
+                    {marker.placeName && (
+                      <p className="text-xs text-amber-600 italic flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                        </svg>
+                        {marker.placeName}
+                      </p>
                     )}
-                  </p>
+                  </div>
                 </div>
               </Popup>
             </Marker>
