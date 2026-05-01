@@ -41,11 +41,6 @@ export class GooglePhotosClient {
 
   constructor(accessToken: string) {
     this.accessToken = accessToken;
-    console.log('GooglePhotosClient initialized with token:', {
-      hasToken: !!accessToken,
-      tokenLength: accessToken?.length,
-      tokenPrefix: accessToken?.substring(0, 20) + '...'
-    });
   }
 
   /**

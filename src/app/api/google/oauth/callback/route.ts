@@ -32,8 +32,25 @@ export async function GET(request: NextRequest) {
   }
 
   // Verify state parameter (protection against CSRF)
-  const storedState = request.cookies.get('google_oauth_state')?.value;
-  if (!state || !storedState || state !== storedState) {
+  const storedStateCookie = request.cookies.get('google_oauth_state')?.value;
+  let returnUrl = '/trips/new'; // Default return URL
+
+  if (storedStateCookie) {
+    try {
+      const storedState = JSON.parse(storedStateCookie);
+      if (!state || !storedState.state || state !== storedState.state) {
+        return NextResponse.redirect(
+          new URL('/trips/new?error=invalid_state', request.url)
+        );
+      }
+      returnUrl = storedState.returnUrl || '/trips/new';
+    } catch (e) {
+      console.error('Failed to parse state cookie:', e);
+      return NextResponse.redirect(
+        new URL('/trips/new?error=invalid_state', request.url)
+      );
+    }
+  } else if (!state || !storedStateCookie || state !== storedStateCookie) {
     return NextResponse.redirect(
       new URL('/trips/new?error=invalid_state', request.url)
     );
@@ -67,7 +84,7 @@ export async function GET(request: NextRequest) {
 
     // Clear the state cookie
     const response = NextResponse.redirect(
-      new URL(`/trips/new?google_token=${tokenData.access_token}`, request.url)
+      new URL(`${returnUrl}?google_token=${tokenData.access_token}`, request.url)
     );
     response.cookies.delete('google_oauth_state');
 

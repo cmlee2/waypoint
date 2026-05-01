@@ -23,6 +23,9 @@ export async function GET(request: NextRequest) {
     // Step 1: Redirect user to Google OAuth consent screen
     const state = crypto.randomUUID(); // Use random state for security
 
+    // Store the current URL in state so we can redirect back after OAuth
+    const returnUrl = request.nextUrl.searchParams.get('returnUrl') || '/trips/new';
+
     const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     authUrl.searchParams.append('client_id', process.env.GOOGLE_CLIENT_ID || '');
     authUrl.searchParams.append('redirect_uri', REDIRECT_URI);
@@ -35,15 +38,16 @@ export async function GET(request: NextRequest) {
     console.log('OAuth Request:', {
       scope: GOOGLE_PHOTOS_SCOPE,
       redirectUri: REDIRECT_URI,
-      clientId: process.env.GOOGLE_CLIENT_ID
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      returnUrl
     });
 
-    // Store state in session or database for verification
+    // Store state and return URL in session or database for verification
     // For simplicity, we'll return it in the response
     const response = NextResponse.redirect(authUrl.toString());
 
-    // Set state cookie for verification
-    response.cookies.set('google_oauth_state', state, {
+    // Set state cookie for verification (include return URL)
+    response.cookies.set('google_oauth_state', JSON.stringify({ state, returnUrl }), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',

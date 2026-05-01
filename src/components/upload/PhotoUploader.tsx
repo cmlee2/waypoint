@@ -44,9 +44,12 @@ export default function PhotoUploader({
   const [googlePhotosOpen, setGooglePhotosOpen] = useState(false);
   const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
   const [isImportingFromGoogle, setIsImportingFromGoogle] = useState(false);
+  const [hasCheckedForToken, setHasCheckedForToken] = useState(false);
 
-  // Extract Google token from URL on mount
+  // Extract Google token from URL on mount (only once)
   useEffect(() => {
+    if (hasCheckedForToken) return;
+
     const params = new URLSearchParams(window.location.search);
     const token = params.get('google_token');
     if (token) {
@@ -59,9 +62,13 @@ export default function PhotoUploader({
       url.searchParams.delete('google_token');
       window.history.replaceState({}, '', url.toString());
     }
-  }, []);
+
+    setHasCheckedForToken(true);
+  }, [hasCheckedForToken]);
 
   const extractMetadata = useCallback(async (file: File) => {
+    console.log(`Extracting metadata from ${file.name}...`);
+
     const metadata = await exifr.parse(file, [
       'latitude',
       'longitude',
@@ -70,6 +77,16 @@ export default function PhotoUploader({
       'CreateDate',
       'ModifyDate',
     ]);
+
+    console.log(`EXIF data for ${file.name}:`, {
+      hasLatitude: typeof metadata?.latitude === 'number',
+      hasLongitude: typeof metadata?.longitude === 'number',
+      latitude: metadata?.latitude,
+      longitude: metadata?.longitude,
+      hasDateTimeOriginal: !!metadata?.DateTimeOriginal,
+      dateTimeOriginal: metadata?.DateTimeOriginal,
+      allMetadata: metadata
+    });
 
     const takenAt =
       metadata?.DateTimeOriginal ??
@@ -253,7 +270,10 @@ export default function PhotoUploader({
     const left = window.screenX + (window.innerWidth - width) / 2;
     const top = window.screenY + (window.innerHeight - height) / 2;
 
-    const authUrl = '/api/google/oauth?action=authorize';
+    // Get current URL to return to after OAuth
+    const returnUrl = window.location.pathname + window.location.search;
+
+    const authUrl = `/api/google/oauth?action=authorize&returnUrl=${encodeURIComponent(returnUrl)}`;
     const popup = window.open(
       authUrl,
       'google-auth',
@@ -325,6 +345,20 @@ export default function PhotoUploader({
 
   const hasCoordinates = (photo: PhotoPreview) =>
     Number.isFinite(photo.lat) && Number.isFinite(photo.lng);
+
+  const getGPSStatus = (photo: PhotoPreview) => {
+    if (hasCoordinates(photo)) {
+      return {
+        hasGPS: true,
+        message: `GPS: ${photo.lat?.toFixed(4)}, ${photo.lng?.toFixed(4)}`
+      };
+    } else {
+      return {
+        hasGPS: false,
+        message: 'No GPS data found in photo'
+      };
+    }
+  };
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-8 p-6">
@@ -419,7 +453,9 @@ export default function PhotoUploader({
                               {photo.locationName || `${photo.lat?.toFixed(4)}, ${photo.lng?.toFixed(4)}`}
                             </span>
                           ) : (
-                            'No Location'
+                            <span className="text-amber-600" title="No GPS data found in photo - you may need to export from Photos app with location info preserved">
+                              No GPS Data
+                            </span>
                           )}
                         </span>
                       </div>
