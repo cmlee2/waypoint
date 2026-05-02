@@ -44,18 +44,31 @@ export default function GooglePhotosPicker({
     }
 
     try {
+      console.log('🔍 Starting Google Photos load...');
+      console.log('📋 Access token info:', {
+        hasToken: !!accessToken,
+        tokenLength: accessToken?.length,
+        tokenPrefix: accessToken?.substring(0, 20) + '...'
+      });
+
       // Validate token first
-      console.log('Validating Google Photos token...');
+      console.log('🔑 Validating Google Photos token...');
       const isTokenValid = await client.validateToken();
 
       if (!isTokenValid) {
+        console.error('❌ Token validation failed');
         throw new Error('Invalid or expired Google Photos access token. Please try authorizing again.');
       }
 
-      console.log('Token validated successfully, loading photos...');
+      console.log('✅ Token validated successfully, loading photos...');
       const result = await rateLimiter.execute(() =>
         client.listPhotos(50, pageToken)
       );
+
+      console.log(`📸 Loaded ${result.photos.length} photos`);
+      if (result.nextPageToken) {
+        console.log('📄 Has more pages available');
+      }
 
       if (pageToken) {
         setPhotos(prev => [...prev, ...result.photos]);
@@ -65,7 +78,7 @@ export default function GooglePhotosPicker({
 
       setNextPageToken(result.nextPageToken);
     } catch (err) {
-      console.error('Failed to load photos:', err);
+      console.error('❌ Failed to load photos:', err);
       setError(err instanceof Error ? err.message : 'Failed to load photos');
     } finally {
       setIsLoading(false);

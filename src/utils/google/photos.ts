@@ -48,17 +48,20 @@ export class GooglePhotosClient {
    */
   async validateToken(): Promise<boolean> {
     try {
+      console.log('🔍 Validating token with Google OAuth2 API...');
       const response = await fetch('https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=' + this.accessToken);
       const data = await response.json();
 
-      console.log('Token validation result:', {
+      console.log('📋 Token validation result:', {
         valid: response.ok,
-        scopes: data.scope,
-        expires_in: data.expires_in
+        hasScopes: !!data.scope,
+        scopeCount: data.scope ? data.scope.split(' ').length : 0,
+        expires_in: data.expires_in,
+        issued_to: data.issued_to ? data.issued_to.substring(0, 10) + '...' : 'N/A'
       });
 
       if (!response.ok) {
-        console.error('Token validation failed:', data);
+        console.error('❌ Token validation failed:', data);
         return false;
       }
 
@@ -69,17 +72,20 @@ export class GooglePhotosClient {
       ];
 
       const tokenScopes = data.scope || '';
+      console.log('🔑 Token scopes:', tokenScopes);
+      console.log('🎯 Required scopes:', requiredScopes);
+
       const hasRequiredScopes = requiredScopes.some(scope => tokenScopes.includes(scope));
 
-      console.log('Scope check:', {
+      console.log('✅ Scope check result:', {
         hasRequiredScopes,
-        tokenScopes,
-        requiredScopes
+        hasReadonly: tokenScopes.includes('https://www.googleapis.com/auth/photoslibrary.readonly'),
+        hasFullAccess: tokenScopes.includes('https://www.googleapis.com/auth/photoslibrary')
       });
 
       return hasRequiredScopes;
     } catch (error) {
-      console.error('Token validation error:', error);
+      console.error('❌ Token validation error:', error);
       return false;
     }
   }

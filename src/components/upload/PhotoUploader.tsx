@@ -70,22 +70,87 @@ export default function PhotoUploader({
     console.log(`📸 Extracting metadata from ${file.name} (${formatFileSize(file.size)})...`);
 
     try {
-      // Try multiple extraction methods
+      // Try multiple extraction methods with different configurations
       const metadata = await exifr.parse(file, {
-        pick: ['latitude', 'longitude', 'DateTimeOriginal', 'DateTimeDigitized', 'CreateDate', 'ModifyDate'],
+        // Try to get ALL tags, not just specific ones
+        pick: [
+          'latitude', 'longitude', 'GPSLatitude', 'GPSLongitude',
+          'GPSLatitudeRef', 'GPSLongitudeRef',
+          'DateTimeOriginal', 'DateTimeDigitized', 'CreateDate', 'ModifyDate'
+        ],
         translateValues: false,
-        sanitize: false
+        sanitize: false,
+        // Enable GPS parsing
+        gps: true,
+        // Try to read all EXIF data
+        tiff: true,
+        ifd0: true,
+        ifd1: true,
+        exif: true,
+        gps: true,
+        interop: true
       });
 
       console.log(`✅ EXIF data for ${file.name}:`, {
         hasLatitude: typeof metadata?.latitude === 'number',
         hasLongitude: typeof metadata?.longitude === 'number',
+        hasGPSLatitude: typeof metadata?.GPSLatitude === 'number',
+        hasGPSLongitude: typeof metadata?.GPSLongitude === 'number',
         latitude: metadata?.latitude,
         longitude: metadata?.longitude,
+        GPSLatitude: metadata?.GPSLatitude,
+        GPSLongitude: metadata?.GPSLongitude,
+        GPSLatitudeRef: metadata?.GPSLatitudeRef,
+        GPSLongitudeRef: metadata?.GPSLongitudeRef,
         hasDateTimeOriginal: !!metadata?.DateTimeOriginal,
         dateTimeOriginal: metadata?.DateTimeOriginal,
         rawMetadata: metadata
       });
+
+      // Try multiple ways to get GPS coordinates
+      let lat: number | undefined;
+      let lng: number | undefined;
+
+      // Method 1: Direct latitude/longitude
+      if (typeof metadata?.latitude === 'number' && typeof metadata?.longitude === 'number') {
+        lat = metadata.latitude;
+        lng = metadata.longitude;
+      }
+      // Method 2: GPSLatitude/GPSLongitude (common in many cameras)
+      else if (typeof metadata?.GPSLatitude === 'number' && typeof metadata?.GPSLongitude === 'number') {
+        lat = metadata.GPSLatitude;
+        lng = metadata.GPSLongitude;
+      }
+      // Method 3: Try to parse GPS coordinates from raw data
+      else if (metadata?.GPSLatitude && metadata?.GPSLongitude) {
+        try {
+          // Some cameras store GPS as arrays or objects
+          const gpsLat = metadata.GPSLatitude;
+          const gpsLng = metadata.GPSLongitude;
+          const latRef = metadata.GPSLatitudeRef || 'N';
+          const lngRef = metadata.GPSLongitudeRef || 'E';
+
+          // Handle different GPS coordinate formats
+          if (Array.isArray(gpsLat) && Array.isArray(gpsLng)) {
+            // Convert from degrees/minutes/seconds format
+            lat = gpsLat[0] + gpsLat[1]/60 + gpsLat[2]/3600;
+            lng = gpsLng[0] + gpsLng[1]/60 + gpsLng[2]/3600;
+
+            // Apply direction references
+            if (latRef === 'S') lat = -lat;
+            if (lngRef === 'W') lng = -lng;
+          } else if (typeof gpsLat === 'number' && typeof gpsLng === 'number') {
+            lat = gpsLat;
+            lng = gpsLng;
+
+            // Apply direction references
+            if (latRef === 'S') lat = -lat;
+            if (lngRef === 'W') lng = -lng;
+          }
+        } catch (e) {
+          console.warn('Failed to parse GPS coordinates:', e);
+        }
+      }
 
       const takenAt =
         metadata?.DateTimeOriginal ??
@@ -95,15 +160,16 @@ export default function PhotoUploader({
         (file.lastModified ? new Date(file.lastModified) : undefined);
 
       const result = {
-        lat: typeof metadata?.latitude === 'number' ? metadata.latitude : undefined,
-        lng: typeof metadata?.longitude === 'number' ? metadata.longitude : undefined,
+        lat,
+        lng,
         takenAt: takenAt instanceof Date && !Number.isNaN(takenAt.getTime()) ? takenAt : undefined,
       };
 
       console.log(`📍 GPS result for ${file.name}:`, {
         hasGPS: result.lat !== undefined && result.lng !== undefined,
         lat: result.lat,
-        lng: result.lng
+        lng: result.lng,
+        extractionMethod: result.lat ? 'GPS data found' : 'No GPS data'
       });
 
       return result;

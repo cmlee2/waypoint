@@ -35,11 +35,13 @@ export async function GET(request: NextRequest) {
     authUrl.searchParams.append('access_type', 'offline');
     authUrl.searchParams.append('prompt', 'consent');
 
-    console.log('🔑 OAuth Request:', {
+    console.log('🔑 OAuth Request Details:', {
       scope: GOOGLE_PHOTOS_SCOPE,
+      scopeCount: GOOGLE_PHOTOS_SCOPE.split(' ').length,
       redirectUri: REDIRECT_URI,
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      returnUrl
+      clientId: process.env.GOOGLE_CLIENT_ID?.substring(0, 10) + '...',
+      returnUrl,
+      fullAuthUrl: authUrl.toString()
     });
 
     // Store state and return URL in session or database for verification
