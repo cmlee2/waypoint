@@ -80,11 +80,9 @@ export default function PhotoUploader({
         ],
         translateValues: false,
         sanitize: false,
-        // Enable GPS parsing
-        gps: true,
         // Try to read all EXIF data
         tiff: true,
-        ifd0: true,
+        ifd0: {},
         ifd1: true,
         exif: true,
         gps: true,
