@@ -135,15 +135,15 @@ export default function PhotoUploader({
             lng = gpsLng[0] + gpsLng[1]/60 + gpsLng[2]/3600;
 
             // Apply direction references
-            if (latRef === 'S') lat = -lat;
-            if (lngRef === 'W') lng = -lng;
+            if (lat !== undefined && latRef === 'S') lat = -lat;
+            if (lng !== undefined && lngRef === 'W') lng = -lng;
           } else if (typeof gpsLat === 'number' && typeof gpsLng === 'number') {
             lat = gpsLat;
             lng = gpsLng;
 
             // Apply direction references
-            if (latRef === 'S') lat = -lat;
-            if (lngRef === 'W') lng = -lng;
+            if (lat !== undefined && latRef === 'S') lat = -lat;
+            if (lng !== undefined && lngRef === 'W') lng = -lng;
           }
         } catch (e) {
           console.warn('Failed to parse GPS coordinates:', e);
