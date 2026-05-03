@@ -44,7 +44,9 @@ function addToCache(key: string, result: PlaceInfo): void {
   // Remove oldest entry if cache is full
   if (reverseGeocodeCache.size >= CACHE_MAX_SIZE) {
     const firstKey = reverseGeocodeCache.keys().next().value;
-    reverseGeocodeCache.delete(firstKey);
+    if (firstKey !== undefined) {
+      reverseGeocodeCache.delete(firstKey);
+    }
   }
   reverseGeocodeCache.set(key, result);
 }
