@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { TripMapProps } from '@/types/map';
 import { truncatePlaceName } from '@/utils/location/formatAddress';
+import PhotoGridPopup from './PhotoGridPopup';
 import 'leaflet/dist/leaflet.css';
 import 'react-leaflet-markercluster/styles';
 
@@ -31,12 +32,12 @@ const MarkerClusterGroup = dynamic(
 const TILE_LAYER_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
 const ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
-export default function LeafletEngine({ 
-  center, 
-  zoom, 
-  markers, 
+export default function LeafletEngine({
+  center,
+  zoom,
+  markers,
   onMarkerClick,
-  className 
+  className
 }: TripMapProps) {
   const [L, setL] = useState<any>(null);
   const [mapInstance, setMapInstance] = useState<any>(null);
@@ -114,41 +115,12 @@ export default function LeafletEngine({
               }}
             >
               <Popup className="travel-popup">
-                <div className="p-3 min-w-[220px] bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl">
-                  {marker.imageUrl && (
-                    <div className="relative mb-3">
-                      <img
-                        src={marker.imageUrl}
-                        alt={marker.tripName || marker.label || 'Trip'}
-                        className="w-full h-28 object-cover rounded-lg shadow-md border-2 border-amber-200"
-                      />
-                      <div className="absolute inset-0 rounded-lg shadow-inner border border-white/20"></div>
-                    </div>
-                  )}
-                  <div className="space-y-2">
-                    <h3 className="font-bold text-amber-900 text-lg leading-tight">
-                      {marker.tripName || marker.label || 'Trip'}
-                    </h3>
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="text-amber-700 font-medium">
-                        {marker.photoCount || 0} memories
-                      </span>
-                      {marker.isPublic && !marker.isMine && (
-                        <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider text-[10px] border border-amber-200">
-                          Shared
-                        </span>
-                      )}
-                    </div>
-                    {marker.placeName && (
-                      <p className="text-xs text-amber-600 italic flex items-center gap-1">
-                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                        </svg>
-                        {marker.placeName}
-                      </p>
-                    )}
-                  </div>
-                </div>
+                <PhotoGridPopup
+                  marker={marker}
+                  onSeeDetails={() => {
+                    onMarkerClick?.(marker.id);
+                  }}
+                />
               </Popup>
             </Marker>
           ))}
