@@ -53,16 +53,15 @@ export function handleApiError(error: any, context: { service: string; endpoint:
   return { isRateLimited: false, statusCode, message: errorMessage };
 }
 
-export function createRateLimitedFetch(service: string) {
+export function createRateLimitedFetch(service: string, minDelay = 1000) {
   let lastRequestTime = 0;
-  const MIN_DELAY = 1000;
 
   return async (url: string, fetchOptions?: RequestInit) => {
     const now = Date.now();
     const timeSinceLastRequest = now - lastRequestTime;
 
-    if (timeSinceLastRequest < MIN_DELAY) {
-      await new Promise(resolve => setTimeout(resolve, MIN_DELAY - timeSinceLastRequest));
+    if (timeSinceLastRequest < minDelay) {
+      await new Promise(resolve => setTimeout(resolve, minDelay - timeSinceLastRequest));
     }
 
     try {
