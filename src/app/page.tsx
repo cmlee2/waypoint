@@ -6,6 +6,7 @@ import { Plus } from 'lucide-react';
 import Link from 'next/link';
 import DashboardClient from './dashboard/DashboardClient';
 import AuthPopup from '@/components/AuthPopup';
+import { calculateSmartCentering } from '@/utils/map/smartCentering';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,12 +75,15 @@ export default async function HomePage() {
     };
   });
 
-  const defaultCenter = { lat: 20, lng: 0 };
-  const initialCenter = markers.length > 0
-    ? { lat: markers[0].lat, lng: markers[0].lng }
-    : defaultCenter;
+  // Use smart centering to calculate optimal center and zoom
+  const centeringResult = calculateSmartCentering(markers, {
+    minZoom: 2,
+    maxZoom: 12,
+    paddingFactor: 0.15, // Add 15% padding for better visualization
+  });
 
-  const initialZoom = markers.length > 0 ? 3 : 1;
+  const initialCenter = centeringResult.center;
+  const initialZoom = centeringResult.zoom;
 
   return (
     <div className="flex-1 flex flex-col h-[calc(100vh-4rem)]">

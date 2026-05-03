@@ -106,15 +106,10 @@ export default function LeafletEngine({
               position={[marker.lat, marker.lng]}
               icon={createMarkerIcon(marker.placeName)}
               eventHandlers={{
-                click: () => onMarkerClick?.(marker.id),
-                mouseover: (e) => {
+                click: (e) => {
+                  onMarkerClick?.(marker.id);
+                  // Open popup on click
                   e.target.openPopup();
-                },
-                mouseout: (e) => {
-                  // Add small delay to prevent flickering
-                  setTimeout(() => {
-                    e.target.closePopup();
-                  }, 100);
                 }
               }}
             >

@@ -5,9 +5,11 @@ import { useDropzone } from 'react-dropzone';
 import exifr from 'exifr';
 import { Camera, X, MapPin, Calendar, Loader2, Image as ImageIcon } from 'lucide-react';
 import LeafletLocationPickerModal from './LeafletLocationPickerModal';
+import PlaceSelectorModal from './PlaceSelectorModal';
 import GooglePhotosPicker from '@/components/GooglePhotosPicker';
 import { compressImage, formatFileSize } from '@/utils/imageCompression';
 import { GooglePhoto, createGooglePhotosClient } from '@/utils/google/photos';
+import { reverseGeocode, type PlaceInfo } from '@/utils/places/nominatim';
 
 interface PhotoPreview {
   file: File;
@@ -15,6 +17,7 @@ interface PhotoPreview {
   lat?: number;
   lng?: number;
   locationName?: string;
+  placeType?: string;
   takenAt?: Date;
   caption: string;
   status: 'pending' | 'processing' | 'uploading' | 'success' | 'error';
@@ -45,6 +48,9 @@ export default function PhotoUploader({
   const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
   const [isImportingFromGoogle, setIsImportingFromGoogle] = useState(false);
   const [hasCheckedForToken, setHasCheckedForToken] = useState(false);
+  const [placeSelectorIndex, setPlaceSelectorIndex] = useState<number | null>(null);
+  const [placeOptions, setPlaceOptions] = useState<Array<{ name: string; type: string; displayName: string; address?: string }>>([]);
+  const [isLookingUpPlaces, setIsLookingUpPlaces] = useState(false);
 
   // Extract Google token from URL on mount (only once)
   useEffect(() => {
@@ -181,6 +187,22 @@ export default function PhotoUploader({
     }
   }, []);
 
+  const lookupPlaceForPhoto = useCallback(async (lat: number, lng: number): Promise<PlaceInfo | null> => {
+    try {
+      console.log('🔍 Looking up place for coordinates:', { lat, lng });
+      const placeInfo = await reverseGeocode(lat, lng);
+      if (placeInfo) {
+        console.log('✅ Place found:', placeInfo.name);
+      } else {
+        console.log('⚠️ No place found for coordinates');
+      }
+      return placeInfo;
+    } catch (error) {
+      console.error('❌ Place lookup error:', error);
+      return null;
+    }
+  }, []);
+
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setIsProcessing(true);
 
@@ -206,11 +228,26 @@ export default function PhotoUploader({
             console.log(`✅ Compressed ${file.name}: ${formatFileSize(file.size)} → ${formatFileSize(compressed.size)}`);
             console.log(`📍 GPS preserved: ${lat !== undefined && lng !== undefined ? 'YES' : 'NO'}`);
 
+            // Auto-lookup place if GPS coordinates are available
+            let locationName: string | undefined;
+            if (lat !== undefined && lng !== undefined) {
+              try {
+                const placeInfo = await lookupPlaceForPhoto(lat, lng);
+                if (placeInfo) {
+                  locationName = placeInfo.name;
+                  console.log(`🏷️ Auto-assigned location: ${locationName}`);
+                }
+              } catch (error) {
+                console.warn('Failed to lookup place for photo:', error);
+              }
+            }
+
             return {
               file: compressed.file,
               preview: URL.createObjectURL(compressed.file),
               lat,
               lng,
+              locationName,
               takenAt,
               caption: '',
               status: 'pending'
@@ -556,6 +593,19 @@ export default function PhotoUploader({
         onPhotosSelected={handleGooglePhotosImport}
         accessToken={googleAccessToken || ''}
         maxPhotos={15 - photos.length}
+      />
+
+      {/* Place Selector Modal */}
+      <PlaceSelectorModal
+        isOpen={placeSelectorIndex !== null}
+        onClose={() => setPlaceSelectorIndex(null)}
+        places={placeOptions}
+        onSelect={(place) => {
+          if (placeSelectorIndex === null) return;
+          updateLocation(placeSelectorIndex, photos[placeSelectorIndex].lat || 0, photos[placeSelectorIndex].lng || 0, place.name);
+          setPlaceSelectorIndex(null);
+        }}
+        isLoading={isLookingUpPlaces}
       />
     </div>
   );

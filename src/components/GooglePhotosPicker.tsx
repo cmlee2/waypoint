@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { X, Loader2, Check, Image as ImageIcon } from 'lucide-react';
+import { X, Loader2, Check, Image as ImageIcon, RefreshCw, AlertCircle } from 'lucide-react';
 import { GooglePhoto, createGooglePhotosClient } from '@/utils/google/photos';
+import { formatScopeErrorMessage, getScopeTroubleshootingSteps } from '@/utils/google/scopes';
 
 interface GooglePhotosPickerProps {
   isOpen: boolean;
@@ -25,6 +26,8 @@ export default function GooglePhotosPicker({
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [nextPageToken, setNextPageToken] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
+  const [isScopeError, setIsScopeError] = useState(false);
+  const [showTroubleshooting, setShowTroubleshooting] = useState(false);
 
   const { client, rateLimiter } = createGooglePhotosClient(accessToken);
 
@@ -41,6 +44,8 @@ export default function GooglePhotosPicker({
     } else {
       setIsLoading(true);
       setError(null);
+      setIsScopeError(false);
+      setShowTroubleshooting(false);
     }
 
     try {
@@ -57,7 +62,10 @@ export default function GooglePhotosPicker({
 
       if (!isTokenValid) {
         console.error('❌ Token validation failed');
-        throw new Error('Invalid or expired Google Photos access token. Please try authorizing again.');
+        const errorMessage = 'Invalid or expired Google Photos access token. Please try authorizing again.';
+        setError(errorMessage);
+        setIsScopeError(true);
+        throw new Error(errorMessage);
       }
 
       console.log('✅ Token validated successfully, loading photos...');
@@ -79,7 +87,20 @@ export default function GooglePhotosPicker({
       setNextPageToken(result.nextPageToken);
     } catch (err) {
       console.error('❌ Failed to load photos:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load photos');
+
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load photos';
+
+      // Check if it's a scope-related error
+      if (errorMessage.includes('Insufficient permissions') ||
+          errorMessage.includes('Missing scopes') ||
+          errorMessage.includes('scope')) {
+        console.error('❌ Scope-related error detected');
+        setError(formatScopeErrorMessage(['photoslibrary.readonly', 'photoslibrary']));
+        setIsScopeError(true);
+      } else {
+        setError(errorMessage);
+        setIsScopeError(false);
+      }
     } finally {
       setIsLoading(false);
       setIsLoadingMore(false);
@@ -134,7 +155,32 @@ export default function GooglePhotosPicker({
         {/* Error Message */}
         {error && (
           <div className="mx-6 mt-4 rounded-xl bg-red-50 border border-red-200 p-4">
-            <p className="text-sm text-red-700">{error}</p>
+            <div className="flex items-start gap-3">
+              <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm text-red-700 font-medium">{error}</p>
+                {isScopeError && (
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowTroubleshooting(!showTroubleshooting)}
+                      className="text-sm text-red-600 underline hover:text-red-800"
+                    >
+                      {showTroubleshooting ? 'Hide troubleshooting steps' : 'Show troubleshooting steps'}
+                    </button>
+                    {showTroubleshooting && (
+                      <div className="mt-2 text-sm text-red-600 bg-red-100/50 rounded-lg p-3">
+                        <ol className="list-decimal list-inside space-y-1">
+                          {getScopeTroubleshootingSteps().map((step, index) => (
+                            <li key={index}>{step}</li>
+                          ))}
+                        </ol>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -229,6 +275,21 @@ export default function GooglePhotosPicker({
             )}
           </div>
           <div className="flex gap-3">
+            {isScopeError && (
+              <button
+                type="button"
+                onClick={() => {
+                  // Trigger re-authorization by closing and letting user start over
+                  onClose();
+                  // The parent component should handle re-authorization
+                  window.location.href = '/api/google/oauth';
+                }}
+                className="rounded-xl border border-red-300 bg-red-50 px-6 py-2 font-medium text-red-700 transition-colors hover:bg-red-100 flex items-center gap-2"
+              >
+                <RefreshCw size={16} />
+                Re-authorize
+              </button>
+            )}
             <button
               type="button"
               onClick={onClose}

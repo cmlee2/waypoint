@@ -9,6 +9,15 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+function isMissingPlaceColumnError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+
+  const message = 'message' in error && typeof error.message === 'string' ? error.message : '';
+  const details = 'details' in error && typeof error.details === 'string' ? error.details : '';
+
+  return message.includes('place_name') || message.includes('place_type') || details.includes('place_name') || details.includes('place_type');
+}
+
 function getFileExtension(file: File) {
   const originalExtension = file.name.split('.').pop()?.toLowerCase();
   if (originalExtension && /^[a-z0-9]+$/.test(originalExtension)) {
@@ -101,17 +110,62 @@ export async function POST(req: Request) {
       const lat = typeof meta.lat === 'number' && Number.isFinite(meta.lat) ? meta.lat : null;
       const lng = typeof meta.lng === 'number' && Number.isFinite(meta.lng) ? meta.lng : null;
       const takenAt = typeof meta.takenAt === 'string' ? new Date(meta.takenAt) : null;
+      const locationName = typeof meta.locationName === 'string' ? meta.locationName : null;
 
-      // Save Photo record in DB
+      // Extract place type from location name if available
+      // This is a simple heuristic - in production, you'd want to parse this properly
+      let placeType: string | null = null;
+      if (locationName) {
+        // Try to extract place type from common patterns
+        const lowerName = locationName.toLowerCase();
+        if (lowerName.includes('restaurant') || lowerName.includes('cafe') || lowerName.includes('coffee')) {
+          placeType = 'restaurant';
+        } else if (lowerName.includes('museum') || lowerName.includes('gallery')) {
+          placeType = 'museum';
+        } else if (lowerName.includes('park') || lowerName.includes('garden')) {
+          placeType = 'park';
+        } else if (lowerName.includes('hotel') || lowerName.includes('resort')) {
+          placeType = 'hotel';
+        } else if (lowerName.includes('shop') || lowerName.includes('store')) {
+          placeType = 'shop';
+        } else {
+          placeType = 'unknown';
+        }
+      }
+
+      const photoInsert = {
+        trip_id: trip.id,
+        storage_url: publicUrl,
+        lat,
+        lng,
+        taken_at: takenAt && !Number.isNaN(takenAt.getTime()) ? takenAt.toISOString() : null,
+        caption: typeof meta.caption === 'string' ? meta.caption : '',
+        place_name: locationName,
+        place_type: placeType
+      };
+
+      // Save Photo record in DB. If the migration hasn't run yet, retry without the new fields.
       photoPromises.push(
-        supabaseAdmin.from('photos').insert({
-          trip_id: trip.id,
-          storage_url: publicUrl,
-          lat,
-          lng,
-          taken_at: takenAt && !Number.isNaN(takenAt.getTime()) ? takenAt.toISOString() : null,
-          caption: typeof meta.caption === 'string' ? meta.caption : ''
-        })
+        (async () => {
+          const { error: insertError } = await supabaseAdmin.from('photos').insert(photoInsert);
+
+          if (!insertError) {
+            return;
+          }
+
+          if (!isMissingPlaceColumnError(insertError)) {
+            throw insertError;
+          }
+
+          console.warn('photos.place_name/place_type missing in database; retrying photo insert without place fields');
+
+          const { place_name: _placeName, place_type: _placeType, ...legacyInsert } = photoInsert;
+          const { error: legacyInsertError } = await supabaseAdmin.from('photos').insert(legacyInsert);
+
+          if (legacyInsertError) {
+            throw legacyInsertError;
+          }
+        })()
       );
     }
 

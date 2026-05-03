@@ -65,7 +65,7 @@ export class GooglePhotosClient {
         return false;
       }
 
-      // Check if the token has the required scopes
+      // Check if the token has ALL the required scopes (not just one)
       const requiredScopes = [
         'https://www.googleapis.com/auth/photoslibrary.readonly',
         'https://www.googleapis.com/auth/photoslibrary'
@@ -75,15 +75,29 @@ export class GooglePhotosClient {
       console.log('🔑 Token scopes:', tokenScopes);
       console.log('🎯 Required scopes:', requiredScopes);
 
-      const hasRequiredScopes = requiredScopes.some(scope => tokenScopes.includes(scope));
+      // Check that ALL required scopes are present
+      const hasAllRequiredScopes = requiredScopes.every(scope => tokenScopes.includes(scope));
 
       console.log('✅ Scope check result:', {
-        hasRequiredScopes,
+        hasAllRequiredScopes,
         hasReadonly: tokenScopes.includes('https://www.googleapis.com/auth/photoslibrary.readonly'),
-        hasFullAccess: tokenScopes.includes('https://www.googleapis.com/auth/photoslibrary')
+        hasFullAccess: tokenScopes.includes('https://www.googleapis.com/auth/photoslibrary'),
+        missingScopes: requiredScopes.filter(scope => !tokenScopes.includes(scope))
       });
 
-      return hasRequiredScopes;
+      if (!hasAllRequiredScopes) {
+        const missingScopes = requiredScopes.filter(scope => !tokenScopes.includes(scope));
+        console.error('❌ Token missing required scopes:', {
+          missingScopes,
+          grantedScopes: tokenScopes
+        });
+        throw new Error(
+          `Insufficient permissions. Missing scopes: ${missingScopes.join(', ')}. ` +
+          'Please re-authorize with all required permissions.'
+        );
+      }
+
+      return hasAllRequiredScopes;
     } catch (error) {
       console.error('❌ Token validation error:', error);
       return false;

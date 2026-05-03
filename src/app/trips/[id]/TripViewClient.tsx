@@ -5,6 +5,7 @@ import MapDisplay from '@/components/map/MapDisplay';
 import { MapMarker } from '@/types/map';
 import { ArrowLeft, Calendar, Globe, Lock, Share2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { calculateSmartCentering } from '@/utils/map/smartCentering';
 
 export default function TripViewClient({ trip, isMine }: { trip: any, isMine: boolean }) {
   const router = useRouter();
@@ -21,11 +22,15 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
       imageUrl: p.storage_url,
     }));
 
-  const initialCenter = markers.length > 0 
-    ? { lat: markers[0].lat, lng: markers[0].lng } 
-    : { lat: 20, lng: 0 };
-    
-  const initialZoom = markers.length > 0 ? 10 : 2;
+  // Use smart centering to calculate optimal center and zoom
+  const centeringResult = calculateSmartCentering(markers, {
+    minZoom: 5,
+    maxZoom: 15,
+    paddingFactor: 0.1, // Add 10% padding for better visualization
+  });
+
+  const initialCenter = centeringResult.center;
+  const initialZoom = centeringResult.zoom;
 
   const handleShare = async () => {
     try {

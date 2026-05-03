@@ -106,8 +106,38 @@ export async function GET(request: NextRequest) {
     console.log('✅ Token received:', {
       hasAccessToken: !!tokenData.access_token,
       hasRefreshToken: !!tokenData.refresh_token,
-      expiresIn: tokenData.expires_in
+      expiresIn: tokenData.expires_in,
+      scope: tokenData.scope
     });
+
+    // Verify that all required scopes were granted
+    const requiredScopes = [
+      'https://www.googleapis.com/auth/photoslibrary.readonly',
+      'https://www.googleapis.com/auth/photoslibrary'
+    ];
+
+    const grantedScopes = tokenData.scope ? tokenData.scope.split(' ') : [];
+    const missingScopes = requiredScopes.filter(scope => !grantedScopes.includes(scope));
+
+    console.log('🔍 Scope verification:', {
+      grantedScopes,
+      requiredScopes,
+      missingScopes,
+      hasAllScopes: missingScopes.length === 0
+    });
+
+    if (missingScopes.length > 0) {
+      console.error('❌ Missing required scopes:', missingScopes);
+      // Clear the state cookie even on error
+      const errorResponse = NextResponse.redirect(
+        new URL(
+          `/trips/new?error=insufficient_scopes&missing=${encodeURIComponent(missingScopes.join(','))}`,
+          request.url
+        )
+      );
+      errorResponse.cookies.delete('google_oauth_state');
+      return errorResponse;
+    }
 
     // Clear the state cookie
     const response = NextResponse.redirect(
