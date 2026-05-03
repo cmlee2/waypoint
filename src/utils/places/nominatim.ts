@@ -80,6 +80,11 @@ export async function reverseGeocode(
       }
     );
 
+    if (!('ok' in response)) {
+      console.error('❌ Nominatim reverse geocoding failed:', response.statusCode, response.message);
+      return null;
+    }
+
     if (!response.ok) {
       console.error('❌ Nominatim reverse geocoding failed:', response.status, response.statusText);
       return null;
