@@ -13,6 +13,14 @@ export default function PhotoGridPopup({ marker, onSeeDetails }: PhotoGridPopupP
   const photos = marker.photos || [];
   const photoCount = marker.photoCount || 0;
 
+  console.log('🖼️ PhotoGridPopup rendering:', {
+    markerId: marker.id,
+    tripName: marker.tripName,
+    photoCount,
+    photosLength: photos.length,
+    hasSeeDetails: !!onSeeDetails
+  });
+
   // Determine grid layout based on photo count
   const getGridClass = (index: number, totalPhotos: number) => {
     if (totalPhotos === 1) {

@@ -91,6 +91,7 @@ export default function LeafletEngine({
         ref={(map) => {
           if (map && !mapInstance) {
             setMapInstance(map);
+            console.log('🗺️ Map instance created');
           }
         }}
       >
@@ -100,7 +101,13 @@ export default function LeafletEngine({
         />
         <ZoomControl position="topright" />
 
-        <MarkerClusterGroup>
+        <MarkerClusterGroup
+          showCoverageOnHover={false}
+          zoomToBoundsOnClick={false}
+          spiderfyOnMaxZoom={true}
+          maxClusterRadius={80}
+          disableClusteringAtZoom={15}
+        >
           {markers.map((marker) => (
             <Marker
               key={marker.id}
@@ -108,19 +115,39 @@ export default function LeafletEngine({
               icon={createMarkerIcon(marker.placeName)}
               eventHandlers={{
                 click: (e) => {
-                  onMarkerClick?.(marker.id);
+                  console.log('📍 Marker clicked:', marker.id, marker.tripName);
+                  // Prevent event bubbling
+                  L.DomEvent.stopPropagation(e);
                   // Open popup on click
                   e.target.openPopup();
+                  console.log('📍 Popup opened for:', marker.id);
+                  // Call the click handler
+                  onMarkerClick?.(marker.id);
                 }
               }}
             >
-              <Popup className="travel-popup">
-                <PhotoGridPopup
-                  marker={marker}
-                  onSeeDetails={() => {
-                    onMarkerClick?.(marker.id);
-                  }}
-                />
+              <Popup
+                className="travel-popup"
+                autoClose={true}
+                closeOnClick={true}
+                closeButton={true}
+                minWidth={280}
+                maxWidth={320}
+              >
+                <div className="p-4">
+                  <h3 className="font-bold text-amber-900 text-lg">
+                    {marker.tripName || marker.label || 'Trip'}
+                  </h3>
+                  <p className="text-sm text-amber-700 mt-2">
+                    {marker.photoCount || 0} memories
+                  </p>
+                  <PhotoGridPopup
+                    marker={marker}
+                    onSeeDetails={() => {
+                      onMarkerClick?.(marker.id);
+                    }}
+                  />
+                </div>
               </Popup>
             </Marker>
           ))}
