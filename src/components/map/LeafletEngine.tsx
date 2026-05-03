@@ -14,15 +14,25 @@ const TileLayer = dynamic(() => import('react-leaflet').then(mod => mod.TileLaye
 const Marker = dynamic(() => import('react-leaflet').then(mod => mod.Marker), { ssr: false });
 const Popup = dynamic(() => import('react-leaflet').then(mod => mod.Popup), { ssr: false });
 const ZoomControl = dynamic(() => import('react-leaflet').then(mod => mod.ZoomControl), { ssr: false });
+
+type MarkerClusterGroupProps = React.PropsWithChildren<{
+  showCoverageOnHover?: boolean;
+  zoomToBoundsOnClick?: boolean;
+  spiderfyOnMaxZoom?: boolean;
+  maxClusterRadius?: number;
+  disableClusteringAtZoom?: number;
+}>;
+
 const MarkerClusterGroup = dynamic(
   async () => {
     const mod = await import('react-leaflet-markercluster');
-    const ClusterGroup = mod.default as React.ComponentType<React.PropsWithChildren<object>>;
+    const ClusterGroup = mod.default as React.ComponentType<MarkerClusterGroupProps>;
 
     return function MarkerClusterGroupWrapper({
       children,
-    }: React.PropsWithChildren<object>) {
-      return <ClusterGroup>{children}</ClusterGroup>;
+      ...props
+    }: MarkerClusterGroupProps) {
+      return <ClusterGroup {...props}>{children}</ClusterGroup>;
     };
   },
   { ssr: false }
