@@ -120,7 +120,8 @@ export class GooglePhotosClient {
     console.log('Google Photos API Request:', {
       url: url.toString(),
       hasAccessToken: !!this.accessToken,
-      accessTokenLength: this.accessToken?.length
+      accessTokenLength: this.accessToken?.length,
+      accessTokenPrefix: this.accessToken?.substring(0, 20) + '...'
     });
 
     const response = await fetch(url.toString(), {
@@ -144,6 +145,21 @@ export class GooglePhotosClient {
     if (!response.ok) {
       const error = await response.json();
       console.error('Google Photos API Error:', error);
+      console.error('Full error details:', JSON.stringify(error, null, 2));
+
+      // Check if it's a scope issue
+      if (error.error?.message?.includes('insufficient authentication scopes')) {
+        console.error('❌ Scope issue detected despite token validation passing');
+        console.error('This suggests the token is invalid or scopes were not properly granted');
+        throw new Error(
+          `Authentication failed despite valid token. This usually means: ` +
+          `1) The OAuth consent screen needs to be reconfigured, ` +
+          `2) The token is expired, or ` +
+          `3) The app needs to be re-authorized. ` +
+          `Please check the Google Cloud Console OAuth consent screen configuration.`
+        );
+      }
+
       throw new Error(`Failed to list photos: ${error.error?.message || response.statusText}`);
     }
 

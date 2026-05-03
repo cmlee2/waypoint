@@ -1,3 +1,11 @@
+export interface MapMarkerPhoto {
+  id: string;
+  storage_url: string;
+  caption?: string;
+  lat?: number;
+  lng?: number;
+}
+
 export interface MapMarker {
   id: string;
   lat: number;
@@ -10,6 +18,8 @@ export interface MapMarker {
   photoCount?: number;
   isPublic?: boolean;
   isMine?: boolean;
+  // Photo array for grid preview
+  photos?: MapMarkerPhoto[];
 }
 
 export interface TripMapProps {

@@ -5,6 +5,8 @@ import MapDisplay from '@/components/map/MapDisplay';
 import { MapMarker } from '@/types/map';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
+import { calculateSmartCentering } from '@/utils/map/smartCentering';
 
 interface Trip {
   id: string;
@@ -34,9 +36,40 @@ export default function DashboardClient({
   const [hoveredTripId, setHoveredTripId] = useState<string | null>(null);
   const [showSidebar, setShowSidebar] = useState(isAuthenticated);
   const [mapKey, setMapKey] = useState(0); // Force map remount on sidebar toggle
+  const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
+  const [mapCenter, setMapCenter] = useState(initialCenter);
+  const [mapZoom, setMapZoom] = useState(initialZoom);
 
   const handleMarkerClick = (id: string) => {
-    router.push(`/trips/${id}`);
+    // Find the trip and its photos
+    const trip = trips.find(t => t.id === id);
+    if (!trip) return;
+
+    // Get all photos for this trip
+    const tripMarkers = markers.filter(m => m.id === id);
+
+    if (tripMarkers.length > 0) {
+      // Calculate optimal center and zoom for this trip
+      const centeringResult = calculateSmartCentering(tripMarkers, {
+        minZoom: 10,
+        maxZoom: 15,
+        paddingFactor: 0.1
+      });
+
+      // Update map to focus on this trip
+      setMapCenter(centeringResult.center);
+      setMapZoom(centeringResult.zoom);
+      setSelectedTripId(id);
+    } else {
+      // Fallback to navigation if no markers
+      router.push(`/trips/${id}`);
+    }
+  };
+
+  const handleBackToAllTrips = () => {
+    setSelectedTripId(null);
+    setMapCenter(initialCenter);
+    setMapZoom(initialZoom);
   };
 
   const handleSidebarToggle = () => {
@@ -108,12 +141,25 @@ export default function DashboardClient({
             {showSidebar ? 'Hide Trips' : 'Show Trips'}
           </button>
         )}
+
+        {/* Back to all trips button */}
+        {selectedTripId && (
+          <button
+            type="button"
+            onClick={handleBackToAllTrips}
+            className="absolute top-4 right-4 z-[1000] rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-amber-900 shadow-xl ring-2 ring-amber-200 transition hover:bg-amber-50 hover:shadow-2xl border border-amber-300 flex items-center gap-2"
+          >
+            <ArrowLeft size={16} />
+            Back to All Trips
+          </button>
+        )}
+
         <MapDisplay
           key={mapKey}
           provider="leaflet"
-          center={initialCenter}
-          zoom={initialZoom}
-          markers={markers}
+          center={mapCenter}
+          zoom={mapZoom}
+          markers={selectedTripId ? markers.filter(m => m.id === selectedTripId) : markers}
           onMarkerClick={handleMarkerClick}
           className="w-full h-full"
         />

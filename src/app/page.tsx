@@ -22,9 +22,11 @@ export default async function HomePage() {
       user_id,
       is_public,
       photos (
+        id,
+        storage_url,
+        caption,
         lat,
-        lng,
-        storage_url
+        lng
       )
     `)
     .order('created_at', { ascending: false });
@@ -45,13 +47,25 @@ export default async function HomePage() {
   const markers: MapMarker[] = [];
 
   const clientTrips = validTrips.map((trip) => {
-    // Find the first photo with valid coordinates to use as the trip's pin
-    const firstValidPhoto = trip.photos?.find((p: any) =>
+    // Find all photos with valid coordinates
+    const photosWithCoords = trip.photos?.filter((p: any) =>
       typeof p.lat === 'number' && typeof p.lng === 'number' && Number.isFinite(p.lat) && Number.isFinite(p.lng)
-    );
+    ) || [];
+
+    // Find the first photo with valid coordinates to use as the trip's pin
+    const firstValidPhoto = photosWithCoords[0];
 
     // Only add marker if trip has GPS coordinates
     if (firstValidPhoto) {
+      // Get first 4 photos for grid preview
+      const previewPhotos = photosWithCoords.slice(0, 4).map((p: any) => ({
+        id: p.id,
+        storage_url: p.storage_url,
+        caption: p.caption,
+        lat: p.lat,
+        lng: p.lng
+      }));
+
       markers.push({
         id: trip.id,
         lat: firstValidPhoto.lat,
@@ -62,6 +76,7 @@ export default async function HomePage() {
         photoCount: trip.photos?.length || 0,
         isPublic: Boolean(trip.is_public),
         isMine: trip.user_id === userId,
+        photos: previewPhotos
       });
     }
 
