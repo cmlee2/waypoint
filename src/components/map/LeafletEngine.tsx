@@ -107,12 +107,12 @@ export default function LeafletEngine({
 
     if (placeNames.length > 0) {
       // Return the most common place name
-      const nameCounts = placeNames.reduce((acc: any, name: string) => {
+      const nameCounts = placeNames.reduce<Record<string, number>>((acc, name) => {
         acc[name] = (acc[name] || 0) + 1;
         return acc;
       }, {});
 
-      const mostCommon = Object.entries(nameCounts).sort((a, b) => b[1] - a[1])[0];
+      const mostCommon = Object.entries<number>(nameCounts).sort((a, b) => b[1] - a[1])[0];
       return mostCommon ? mostCommon[0] : 'Multiple Locations';
     }
 
