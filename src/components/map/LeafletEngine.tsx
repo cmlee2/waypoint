@@ -25,6 +25,10 @@ type MarkerClusterGroupProps = React.PropsWithChildren<{
   spiderfyOnMaxZoom?: boolean;
   maxClusterRadius?: number;
   disableClusteringAtZoom?: number;
+  iconCreateFunction?: (cluster: any) => any;
+  eventHandlers?: {
+    click?: (event: any) => void;
+  };
 }>;
 
 const MarkerClusterGroup = dynamic(
