@@ -27,17 +27,28 @@ body {
   border-radius: 12px;
   border: 2px solid #fbbf24;
   box-shadow: 0 10px 25px rgba(139, 69, 19, 0.2);
-  z-index: 1000; /* Ensure popup is above other elements */
+  z-index: 1000 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
 }
 
 .leaflet-popup-content {
   pointer-events: auto; /* Enable pointer events for content */
+  z-index: 1000 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
 }
 
 .leaflet-popup-tip {
   background: linear-gradient(135deg, #fffbeb 0%, #ffedd5 100%);
   border: 2px solid #fbbf24;
   border-top: none;
+  z-index: 1000 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
 }
 
 .leaflet-popup-content {
@@ -57,26 +68,11 @@ body {
   display: block !important;
 }
 
-.leaflet-popup-content-wrapper {
-  z-index: 1000 !important;
+/* Prevent popup from being hidden */
+.leaflet-popup-hidden {
+  display: block !important;
   opacity: 1 !important;
   visibility: visible !important;
-  display: block !important;
-}
-
-.leaflet-popup-content {
-  z-index: 1000 !important;
-  opacity: 1 !important;
-  visibility: visible !important;
-  display: block !important;
-}
-
-/* Ensure popup tip is visible */
-.leaflet-popup-tip {
-  z-index: 1000 !important;
-  opacity: 1 !important;
-  visibility: visible !important;
-  display: block !important;
 }
 
 /* Custom Marker Styles */
