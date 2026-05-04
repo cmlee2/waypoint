@@ -301,8 +301,7 @@ export default function LeafletEngine({
                     }
                   }, 0);
 
-                  // Call the click handler
-                  onMarkerClick?.(marker.id);
+                  // Removed onMarkerClick call - popup stays open, zoom only happens on "See Details" button click
                 },
                 popupopen: (e: any) => {
                   console.log('📍 Popup opened for:', marker.id);
