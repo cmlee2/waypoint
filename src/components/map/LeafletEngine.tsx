@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { TripMapProps } from '@/types/map';
 import { truncatePlaceName } from '@/utils/location/formatAddress';
@@ -29,7 +29,7 @@ type MarkerClusterGroupProps = React.PropsWithChildren<{
   maxClusterRadius?: number;
   disableClusteringAtZoom?: number;
   iconCreateFunction?: (cluster: any) => any;
-  ref?: React.RefObject<any>;
+  onClusterReady?: (clusterGroup: any) => void;
 }>;
 
 const MarkerClusterGroup = dynamic(
@@ -39,10 +39,19 @@ const MarkerClusterGroup = dynamic(
 
     return function MarkerClusterGroupWrapper({
       children,
-      ref,
+      onClusterReady,
       ...props
-    }: MarkerClusterGroupProps) {
-      return <ClusterGroup ref={ref} {...props}>{children}</ClusterGroup>;
+    }: MarkerClusterGroupProps & { onClusterReady?: (clusterGroup: any) => void }) {
+      const clusterRef = useRef<any>(null);
+
+      useEffect(() => {
+        if (clusterRef.current) {
+          console.log('📍 MarkerClusterGroup mounted, ref available');
+          onClusterReady?.(clusterRef.current);
+        }
+      }, [onClusterReady]);
+
+      return <ClusterGroup ref={clusterRef} {...props}>{children}</ClusterGroup>;
     };
   },
   { ssr: false }
@@ -62,6 +71,7 @@ export default function LeafletEngine({
   const [L, setL] = useState<any>(null);
   const [mapInstance, setMapInstance] = useState<any>(null);
   const [clusteredMarkers, setClusteredMarkers] = useState<Map<string, any>>(new Map());
+  const [clusterGroupReady, setClusterGroupReady] = useState(false);
   const clusterGroupRef = useRef<any>(null);
 
   useEffect(() => {
@@ -80,15 +90,20 @@ export default function LeafletEngine({
     }
   }, [mapInstance]);
 
-  // Attach cluster click event handler directly
-  useEffect(() => {
-    if (clusterGroupRef.current && L) {
-      console.log('📍 Cluster group ref available, attaching event handlers');
-      console.log('📍 Cluster group ref:', clusterGroupRef.current);
-      console.log('📍 Cluster group methods:', Object.keys(clusterGroupRef.current));
+  // Handle cluster group ready
+  const handleClusterReady = useCallback((clusterGroup: any) => {
+    console.log('📍 Cluster group ready callback received');
+    console.log('📍 Cluster group:', clusterGroup);
+    console.log('📍 Cluster group methods:', Object.keys(clusterGroup));
+
+    clusterGroupRef.current = clusterGroup;
+    setClusterGroupReady(true);
+
+    if (L) {
+      console.log('📍 Attaching cluster click event handlers');
 
       const handleClusterClick = (e: any) => {
-        console.log('📍 Cluster click event fired (direct attachment)');
+        console.log('📍 Cluster click event fired');
         console.log('📍 Event object:', e);
         console.log('📍 Event layer:', e.layer);
         console.log('📍 Event source:', e.source);
@@ -178,25 +193,15 @@ export default function LeafletEngine({
       };
 
       // Try different event names
-      clusterGroupRef.current.on('clusterclick', handleClusterClick);
-      clusterGroupRef.current.on('click', handleClusterClick);
-      clusterGroupRef.current.on('mouseover', (e: any) => {
+      clusterGroup.on('clusterclick', handleClusterClick);
+      clusterGroup.on('click', handleClusterClick);
+      clusterGroup.on('mouseover', (e: any) => {
         console.log('📍 Cluster mouseover event');
       });
 
       console.log('📍 Event handlers attached to cluster group');
-
-      return () => {
-        if (clusterGroupRef.current) {
-          console.log('📍 Cleaning up cluster event handlers');
-          clusterGroupRef.current.off('clusterclick', handleClusterClick);
-          clusterGroupRef.current.off('click', handleClusterClick);
-        }
-      };
-    } else {
-      console.log('📍 Cluster group ref not available yet');
     }
-  }, [clusterGroupRef.current, L, mapInstance, markers, onMarkerClick]);
+  }, [L, mapInstance, markers, onMarkerClick]);
 
   if (!L) return <div className={`${className} bg-stone-50 rounded-xl`} />;
 
@@ -266,7 +271,7 @@ export default function LeafletEngine({
         <ZoomControl position="topright" />
 
         <MarkerClusterGroup
-          ref={clusterGroupRef}
+          onClusterReady={handleClusterReady}
           showCoverageOnHover={false}
           zoomToBoundsOnClick={false}
           spiderfyOnMaxZoom={true}
