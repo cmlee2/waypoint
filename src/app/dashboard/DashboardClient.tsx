@@ -5,8 +5,7 @@ import MapDisplay from '@/components/map/MapDisplay';
 import { MapMarker } from '@/types/map';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
-import { calculateSmartCentering } from '@/utils/map/smartCentering';
+import { Plus } from 'lucide-react';
 
 interface Trip {
   id: string;
@@ -15,6 +14,8 @@ interface Trip {
   isMine: boolean;
   coverPhoto?: string;
   photoCount: number;
+  startDate?: string;
+  endDate?: string;
 }
 
 interface DashboardClientProps {
@@ -36,51 +37,11 @@ export default function DashboardClient({
   const [hoveredTripId, setHoveredTripId] = useState<string | null>(null);
   const [showSidebar, setShowSidebar] = useState(isAuthenticated);
   const [mapKey, setMapKey] = useState(0); // Force map remount on sidebar toggle
-  const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
-  const [mapCenter, setMapCenter] = useState(initialCenter);
-  const [mapZoom, setMapZoom] = useState(initialZoom);
 
   const handleMarkerClick = (id: string) => {
     console.log('📍 handleMarkerClick called for trip:', id);
-    // Find the trip and its photos
-    const trip = trips.find(t => t.id === id);
-    if (!trip) {
-      console.log('❌ Trip not found:', id);
-      return;
-    }
-
-    console.log('📍 Found trip:', trip.name, 'with', trip.photoCount, 'photos');
-
-    // Get all photos for this trip
-    const tripMarkers = markers.filter(m => m.id === id);
-    console.log('📍 Found markers for trip:', tripMarkers.length);
-
-    if (tripMarkers.length > 0) {
-      // Calculate optimal center and zoom for this trip
-      const centeringResult = calculateSmartCentering(tripMarkers, {
-        minZoom: 10,
-        maxZoom: 15,
-        paddingFactor: 0.1
-      });
-
-      console.log('📍 Centering result:', centeringResult);
-
-      // Update map to focus on this trip
-      setMapCenter(centeringResult.center);
-      setMapZoom(centeringResult.zoom);
-      setSelectedTripId(id);
-      console.log('📍 Map updated to focus on trip:', id);
-    } else {
-      // Fallback to navigation if no markers
-      console.log('📍 No markers found, navigating to trip page');
-      router.push(`/trips/${id}`);
-    }
-  };
-
-  const handleBackToAllTrips = () => {
-    setSelectedTripId(null);
-    setMapCenter(initialCenter);
-    setMapZoom(initialZoom);
+    // Navigate to trip detail page
+    router.push(`/trips/${id}`);
   };
 
   const handleSidebarToggle = () => {
@@ -153,24 +114,12 @@ export default function DashboardClient({
           </button>
         )}
 
-        {/* Back to all trips button */}
-        {selectedTripId && (
-          <button
-            type="button"
-            onClick={handleBackToAllTrips}
-            className="absolute top-4 right-4 z-[1000] rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-amber-900 shadow-xl ring-2 ring-amber-200 transition hover:bg-amber-50 hover:shadow-2xl border border-amber-300 flex items-center gap-2"
-          >
-            <ArrowLeft size={16} />
-            Back to All Trips
-          </button>
-        )}
-
         <MapDisplay
           key={mapKey}
           provider="leaflet"
-          center={mapCenter}
-          zoom={mapZoom}
-          markers={selectedTripId ? markers.filter(m => m.id === selectedTripId) : markers}
+          center={initialCenter}
+          zoom={initialZoom}
+          markers={markers}
           onMarkerClick={handleMarkerClick}
           className="w-full h-full"
         />

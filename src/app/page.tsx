@@ -21,6 +21,8 @@ export default async function HomePage() {
       name,
       user_id,
       is_public,
+      start_date,
+      end_date,
       photos (
         id,
         storage_url,
@@ -76,6 +78,8 @@ export default async function HomePage() {
         photoCount: trip.photos?.length || 0,
         isPublic: Boolean(trip.is_public),
         isMine: trip.user_id === userId,
+        startDate: trip.start_date,
+        endDate: trip.end_date,
         photos: previewPhotos
       });
     }
@@ -86,7 +90,9 @@ export default async function HomePage() {
       user_id: trip.user_id,
       isMine: trip.user_id === userId,
       coverPhoto: trip.photos?.[0]?.storage_url,
-      photoCount: trip.photos?.length || 0
+      photoCount: trip.photos?.length || 0,
+      startDate: trip.start_date,
+      endDate: trip.end_date
     };
   });
 

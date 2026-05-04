@@ -21,6 +21,23 @@ export default function PhotoGridPopup({ marker, onSeeDetails }: PhotoGridPopupP
     hasSeeDetails: !!onSeeDetails
   });
 
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const getDateRange = (startDate?: string, endDate?: string) => {
+    if (!startDate && !endDate) return '';
+    if (startDate && endDate && startDate === endDate) {
+      return formatDate(startDate);
+    }
+    if (startDate && endDate) {
+      return `${formatDate(startDate)} - ${formatDate(endDate)}`;
+    }
+    return formatDate(startDate || endDate);
+  };
+
   // Determine grid layout based on photo count
   const getGridClass = (index: number, totalPhotos: number) => {
     if (totalPhotos === 1) {
@@ -89,9 +106,17 @@ export default function PhotoGridPopup({ marker, onSeeDetails }: PhotoGridPopupP
           <h3 className="font-bold text-amber-900 text-lg leading-tight">
             {marker.tripName || marker.label || 'Trip'}
           </h3>
+
+          {/* Date Range */}
+          {getDateRange(marker.startDate, marker.endDate) && (
+            <div className="flex items-center gap-2 mt-2 text-sm text-amber-700">
+              <Calendar size={14} />
+              <span>{getDateRange(marker.startDate, marker.endDate)}</span>
+            </div>
+          )}
+
           <div className="flex items-center gap-2 mt-2 text-sm">
             <span className="text-amber-700 font-medium flex items-center gap-1">
-              <Calendar size={14} />
               {photoCount} {photoCount === 1 ? 'memory' : 'memories'}
             </span>
             {marker.isPublic && !marker.isMine && (

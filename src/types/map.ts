@@ -18,6 +18,9 @@ export interface MapMarker {
   photoCount?: number;
   isPublic?: boolean;
   isMine?: boolean;
+  // Date fields for trip listing
+  startDate?: string;
+  endDate?: string;
   // Photo array for grid preview
   photos?: MapMarkerPhoto[];
 }
