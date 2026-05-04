@@ -113,7 +113,12 @@ export default function PhotoGridPopup({ marker, onSeeDetails }: PhotoGridPopupP
         {onSeeDetails && (
           <button
             type="button"
-            onClick={onSeeDetails}
+            onClick={(e) => {
+              console.log('🖼️ See Details button clicked in PhotoGridPopup');
+              e.stopPropagation();
+              e.preventDefault();
+              onSeeDetails();
+            }}
             className="w-full mt-4 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white px-4 py-2.5 rounded-xl font-medium transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
           >
             <Eye size={16} />

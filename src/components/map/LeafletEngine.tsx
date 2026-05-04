@@ -80,6 +80,17 @@ export default function LeafletEngine({
     }
   }, [mapInstance]);
 
+  // Handle center and zoom prop changes
+  useEffect(() => {
+    if (mapInstance) {
+      console.log('📍 Map center/zoom props changed:', { center, zoom });
+      mapInstance.setView([center.lat, center.lng], zoom, {
+        animate: true,
+        duration: 0.5
+      });
+    }
+  }, [center, zoom, mapInstance]);
+
   if (!L) return <div className={`${className} bg-stone-50 rounded-xl`} />;
 
   // Create a custom travel-themed marker icon
@@ -324,6 +335,7 @@ export default function LeafletEngine({
                 <PhotoGridPopup
                   marker={marker}
                   onSeeDetails={() => {
+                    console.log('📍 See Details clicked for trip:', marker.id, marker.tripName);
                     onMarkerClick?.(marker.id);
                   }}
                 />
