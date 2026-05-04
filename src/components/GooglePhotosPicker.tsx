@@ -62,7 +62,10 @@ export default function GooglePhotosPicker({
 
       if (!isTokenValid) {
         console.error('❌ Token validation failed');
-        const errorMessage = 'Invalid or expired Google Photos access token. Please try authorizing again.';
+        console.error('This usually means the token is expired or invalid');
+        console.error('Please try re-authorizing with Google Photos');
+
+        const errorMessage = 'Authentication failed. The access token is expired or invalid. Please try re-authorizing with Google Photos.';
         setError(errorMessage);
         setIsScopeError(true);
         throw new Error(errorMessage);
@@ -163,8 +166,18 @@ export default function GooglePhotosPicker({
                   <div className="mt-3">
                     <button
                       type="button"
-                      onClick={() => setShowTroubleshooting(!showTroubleshooting)}
+                      onClick={() => {
+                        // Force re-authorization by redirecting to OAuth
+                        window.location.href = '/api/google/oauth?action=authorize&returnUrl=/trips/new';
+                      }}
                       className="text-sm text-red-600 underline hover:text-red-800"
+                    >
+                      Re-authorize with Google Photos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowTroubleshooting(!showTroubleshooting)}
+                      className="text-sm text-red-600 underline hover:text-red-800 ml-4"
                     >
                       {showTroubleshooting ? 'Hide troubleshooting steps' : 'Show troubleshooting steps'}
                     </button>
@@ -279,10 +292,8 @@ export default function GooglePhotosPicker({
               <button
                 type="button"
                 onClick={() => {
-                  // Trigger re-authorization by closing and letting user start over
-                  onClose();
-                  // The parent component should handle re-authorization
-                  window.location.href = '/api/google/oauth';
+                  // Trigger re-authorization by redirecting to OAuth
+                  window.location.href = '/api/google/oauth?action=authorize&returnUrl=/trips/new';
                 }}
                 className="rounded-xl border border-red-300 bg-red-50 px-6 py-2 font-medium text-red-700 transition-colors hover:bg-red-100 flex items-center gap-2"
               >

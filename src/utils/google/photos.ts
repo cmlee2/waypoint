@@ -75,6 +75,13 @@ export class GooglePhotosClient {
       console.log('🔑 Token scopes:', tokenScopes);
       console.log('🎯 Required scopes:', requiredScopes);
 
+      // Check if the token is expired
+      const expiresIn = data.expires_in;
+      if (expiresIn && expiresIn < 60) {
+        console.error('❌ Token is expired or about to expire:', expiresIn, 'seconds');
+        return false;
+      }
+
       // Check that ALL required scopes are present
       const hasAllRequiredScopes = requiredScopes.every(scope => tokenScopes.includes(scope));
 
@@ -82,7 +89,8 @@ export class GooglePhotosClient {
         hasAllRequiredScopes,
         hasReadonly: tokenScopes.includes('https://www.googleapis.com/auth/photoslibrary.readonly'),
         hasFullAccess: tokenScopes.includes('https://www.googleapis.com/auth/photoslibrary'),
-        missingScopes: requiredScopes.filter(scope => !tokenScopes.includes(scope))
+        missingScopes: requiredScopes.filter(scope => !tokenScopes.includes(scope)),
+        expiresIn
       });
 
       if (!hasAllRequiredScopes) {
@@ -97,6 +105,25 @@ export class GooglePhotosClient {
         );
       }
 
+      // Make a test API call to verify the token actually works
+      console.log('🧪 Making test API call to verify token...');
+      const testResponse = await fetch('https://photoslibrary.googleapis.com/v1/mediaItems:search?pageSize=1', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ pageSize: 1 }),
+      });
+
+      if (!testResponse.ok) {
+        const testError = await testResponse.json();
+        console.error('❌ Test API call failed:', testError);
+        console.error('This means the token is invalid despite passing validation');
+        return false;
+      }
+
+      console.log('✅ Test API call successful - token is valid');
       return hasAllRequiredScopes;
     } catch (error) {
       console.error('❌ Token validation error:', error);

@@ -280,28 +280,36 @@ export default function LeafletEngine({
               eventHandlers={{
                 click: (e: any) => {
                   console.log('📍 Marker clicked:', marker.id, marker.tripName);
-                  // Prevent event bubbling and default behavior
+                  // Prevent all event propagation
                   L.DomEvent.stopPropagation(e);
                   L.DomEvent.preventDefault(e);
+                  L.DomEvent.stop(e);
                   e.originalEvent.stopPropagation();
                   e.originalEvent.preventDefault();
+                  e.originalEvent.stopImmediatePropagation();
 
-                  // Open popup with a small delay to ensure it renders
+                  // Open popup immediately
+                  e.target.openPopup();
+
+                  // Force popup to stay open
                   setTimeout(() => {
-                    e.target.openPopup();
-                    console.log('📍 Popup opened for:', marker.id);
-
-                    // Prevent popup from closing immediately
-                    setTimeout(() => {
-                      const popup = e.target.getPopup();
-                      if (popup) {
-                        console.log('📍 Popup is open:', popup.isOpen());
-                      }
-                    }, 100);
-                  }, 10);
+                    const popup = e.target.getPopup();
+                    if (popup) {
+                      popup.options.autoClose = false;
+                      popup.options.closeOnClick = false;
+                      console.log('📍 Popup configured to stay open for:', marker.id);
+                    }
+                  }, 0);
 
                   // Call the click handler
                   onMarkerClick?.(marker.id);
+                },
+                popupopen: (e: any) => {
+                  console.log('📍 Popup opened for:', marker.id);
+                  e.target.options.autoClose = false;
+                },
+                popupclose: (e: any) => {
+                  console.log('📍 Popup closed for:', marker.id);
                 }
               }}
             >
