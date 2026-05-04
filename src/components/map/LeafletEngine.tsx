@@ -153,7 +153,7 @@ export default function LeafletEngine({
           spiderfyOnMaxZoom={true}
           maxClusterRadius={80}
           disableClusteringAtZoom={15}
-          iconCreateFunction={(cluster) => {
+          iconCreateFunction={(cluster: any) => {
             const childMarkers = cluster.getAllChildMarkers();
             const count = childMarkers.length;
 
@@ -184,7 +184,7 @@ export default function LeafletEngine({
             });
           }}
           eventHandlers={{
-            click: (e) => {
+            click: (e: any) => {
               const cluster = e.layer;
               const childMarkers = cluster.getAllChildMarkers();
               console.log('📍 Cluster clicked:', childMarkers.length, 'markers');
