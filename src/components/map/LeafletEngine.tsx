@@ -278,7 +278,7 @@ export default function LeafletEngine({
                 photos: marker.photos
               }}
               eventHandlers={{
-                click: (e) => {
+                click: (e: any) => {
                   console.log('📍 Marker clicked:', marker.id, marker.tripName);
                   // Prevent event bubbling and default behavior
                   L.DomEvent.stopPropagation(e);
