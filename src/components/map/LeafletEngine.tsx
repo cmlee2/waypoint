@@ -419,7 +419,7 @@ export default function LeafletEngine({
               ref={(markerRef: LeafletMarker | null) => {
                 if (markerRef) {
                   // Store marker data by Leaflet ID when marker is created
-                  const leafletId = markerRef._leaflet_id;
+                  const leafletId = (markerRef as any)._leaflet_id;
                   if (leafletId) {
                     markerDataMap.current.set(leafletId, marker);
                     console.log('📍 Stored marker data for Leaflet ID:', leafletId, 'Marker ID:', marker.id);
