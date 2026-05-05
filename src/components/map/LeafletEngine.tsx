@@ -8,6 +8,7 @@ import PhotoGridPopup from './PhotoGridPopup';
 import ClusteredTripsPopup from './ClusteredTripsPopup';
 import 'leaflet/dist/leaflet.css';
 import 'react-leaflet-markercluster/styles';
+import type { Marker as LeafletMarker } from 'leaflet';
 
 // Import ReactDOM for client-side rendering
 import ReactDOM from 'react-dom/client';
@@ -415,7 +416,7 @@ export default function LeafletEngine({
                 photoCount: marker.photoCount,
                 photos: marker.photos
               }}
-              ref={(markerRef) => {
+              ref={(markerRef: LeafletMarker | null) => {
                 if (markerRef) {
                   // Store marker data by Leaflet ID when marker is created
                   const leafletId = markerRef._leaflet_id;
