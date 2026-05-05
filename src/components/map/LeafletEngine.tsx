@@ -411,6 +411,7 @@ export default function LeafletEngine({
                     console.log('📍 All divs with clustered-trips-popup:', document.querySelectorAll('[id^="clustered-trips-popup-"]'));
                   }
                 }, 10);
+                }
               } else {
                 console.log('❌ No cluster markers data found');
               }
