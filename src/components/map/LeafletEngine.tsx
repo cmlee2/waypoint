@@ -174,10 +174,25 @@ export default function LeafletEngine({
                   markerData = markers.find(m => m.id === childMarker.options?.id);
                 }
 
+                // If still no data, construct it from the child marker options directly
+                if (!markerData && childMarker.options) {
+                  console.log('📍 Constructing marker data from options');
+                  markerData = {
+                    id: childMarker.options.id,
+                    tripName: childMarker.options.tripName,
+                    placeName: childMarker.options.placeName,
+                    photoCount: childMarker.options.photoCount,
+                    photos: childMarker.options.photos,
+                    lat: childMarker._latlng?.lat,
+                    lng: childMarker._latlng?.lng
+                  };
+                }
+
                 console.log('📍 Child marker lookup:', {
                   leafletId,
                   foundInMap: !!markerData,
-                  markerId: markerData?.id
+                  markerId: markerData?.id,
+                  dataSource: markerData ? (markerDataMap.current.has(leafletId) ? 'map' : 'options') : 'none'
                 });
 
                 return markerData;
