@@ -18,7 +18,15 @@ export default function ClusteredTripsPopup({
 
   console.log('🗺️ ClusteredTripsPopup rendering:', {
     markersCount: markers.length,
-    locationName
+    locationName,
+    markersData: markers.map(m => ({
+      id: m.id,
+      tripName: m.tripName,
+      placeName: m.placeName,
+      photoCount: m.photoCount,
+      hasPhotos: !!m.photos,
+      photosLength: m.photos?.length
+    }))
   });
 
   const formatDate = (dateString?: string) => {

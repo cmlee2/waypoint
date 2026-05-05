@@ -201,6 +201,18 @@ export default function LeafletEngine({
               console.log('📍 Cluster markers data:', clusterMarkersData);
 
               if (clusterMarkersData.length > 0) {
+                // Debug: Check what's in the marker data
+                clusterMarkersData.forEach((markerData: any, index: number) => {
+                  console.log(`📍 Marker ${index} data:`, {
+                    id: markerData.id,
+                    tripName: markerData.tripName,
+                    placeName: markerData.placeName,
+                    photoCount: markerData.photoCount,
+                    hasPhotos: !!markerData.photos,
+                    photosLength: markerData.photos?.length
+                  });
+                });
+
                 // Get location name
                 const locationName = getLocationNameFromCluster(childMarkers);
                 console.log('📍 Location name:', locationName);
@@ -338,12 +350,23 @@ export default function LeafletEngine({
 
   // Get location name from cluster markers
   const getLocationNameFromCluster = (clusterMarkers: any[]): string => {
+    console.log('📍 getLocationNameFromCluster called with:', clusterMarkers.length, 'markers');
+
     if (clusterMarkers.length === 0) return 'Unknown Location';
 
     // Try to get a common location name from the markers
     const placeNames = clusterMarkers
-      .map(m => m.options?.placeName)
+      .map(m => {
+        console.log('📍 Processing marker for place name:', {
+          hasOptions: !!m.options,
+          optionsKeys: m.options ? Object.keys(m.options) : [],
+          placeName: m.options?.placeName
+        });
+        return m.options?.placeName;
+      })
       .filter(Boolean);
+
+    console.log('📍 Extracted place names:', placeNames);
 
     if (placeNames.length > 0) {
       // Return the most common place name
@@ -352,8 +375,12 @@ export default function LeafletEngine({
         return acc;
       }, {});
 
+      console.log('📍 Place name counts:', nameCounts);
+
       const mostCommon = Object.entries<number>(nameCounts).sort((a, b) => b[1] - a[1])[0];
-      return mostCommon ? mostCommon[0] : 'Multiple Locations';
+      const result = mostCommon ? mostCommon[0] : 'Multiple Locations';
+      console.log('📍 Most common place name:', result);
+      return result;
     }
 
     // Fallback to generic location name
