@@ -129,95 +129,131 @@ export default function LeafletEngine({
       console.log('📍 Attaching cluster click event handlers');
 
       const handleClusterClick = (e: any) => {
-        console.log('📍 Cluster click event fired');
-        console.log('📍 Event object:', e);
-        console.log('📍 Event type:', e.type);
-        console.log('📍 Event layer:', e.layer);
-        console.log('📍 Event source:', e.source);
-        console.log('📍 Event target:', e.target);
-        console.log('📍 Event latlng:', e.latlng);
+        try {
+          console.log('📍 Cluster click event fired');
+          console.log('📍 Event object:', e);
+          console.log('📍 Event type:', e.type);
+          console.log('📍 Event layer:', e.layer);
+          console.log('📍 Event source:', e.source);
+          console.log('📍 Event target:', e.target);
+          console.log('📍 Event latlng:', e.latlng);
 
-        // Check if this is a cluster
-        if (e.layer && typeof e.layer.getAllChildMarkers === 'function') {
-          console.log('📍 This is a cluster event');
-          const cluster = e.layer;
-          const childMarkers = cluster.getAllChildMarkers();
-          console.log('📍 Cluster clicked:', childMarkers.length, 'markers');
+          // Check if this is a cluster
+          if (e.layer && typeof e.layer.getAllChildMarkers === 'function') {
+            console.log('📍 This is a cluster event');
+            const cluster = e.layer;
+            const childMarkers = cluster.getAllChildMarkers();
+            console.log('📍 Cluster clicked:', childMarkers.length, 'markers');
+            console.log('📍 Child markers array:', childMarkers);
+            console.log('📍 Child markers length:', childMarkers.length);
+            console.log('📍 Condition check:', childMarkers.length > 1);
 
-          if (childMarkers.length > 1) {
-            // Get marker data from child markers
-            const clusterMarkersData = childMarkers.map((childMarker: any) => {
-              const markerData = markers.find(m => m.id === childMarker.options?.id);
-              return markerData;
-            }).filter(Boolean);
+            if (childMarkers.length > 1) {
+              console.log('📍 Processing cluster with multiple markers');
 
-            if (clusterMarkersData.length > 0) {
-              // Get location name
-              const locationName = getLocationNameFromCluster(childMarkers);
+              // Get marker data from child markers
+              const clusterMarkersData = childMarkers.map((childMarker: any) => {
+                const markerData = markers.find(m => m.id === childMarker.options?.id);
+                console.log('📍 Child marker:', childMarker.options?.id, 'Found data:', !!markerData);
+                return markerData;
+              }).filter(Boolean);
 
-              // Create popup with clustered trips
-              const popup = L.popup({
-                className: 'travel-popup',
-                autoClose: false,
-                closeOnClick: false,
-                closeButton: true,
-                minWidth: 320,
-                maxWidth: 380,
-                keepInView: true
-              });
+              console.log('📍 Cluster markers data:', clusterMarkersData);
 
-              // Add popup lifecycle debugging
-              popup.on('add', () => {
-                console.log('📍 Cluster popup added to map');
-              });
+              if (clusterMarkersData.length > 0) {
+                // Get location name
+                const locationName = getLocationNameFromCluster(childMarkers);
+                console.log('📍 Location name:', locationName);
 
-              popup.on('remove', () => {
-                console.log('📍 Cluster popup removed from map');
-              });
+                // Create popup with clustered trips
+                const popup = L.popup({
+                  className: 'travel-popup',
+                  autoClose: false,
+                  closeOnClick: false,
+                  closeButton: true,
+                  minWidth: 320,
+                  maxWidth: 380,
+                  keepInView: true
+                });
 
-              popup.on('close', () => {
-                console.log('📍 Cluster popup closed');
-              });
+                console.log('📍 Popup created:', popup);
 
-              // Create popup content
-              const popupContent = document.createElement('div');
-              popupContent.innerHTML = `
-                <div id="clustered-trips-popup-${cluster._leaflet_id}"></div>
-              `;
+                // Add popup lifecycle debugging
+                popup.on('add', () => {
+                  console.log('📍 Cluster popup added to map');
+                });
 
-              popup.setLatLng(e.latlng).setContent(popupContent).openOn(mapInstance);
+                popup.on('remove', () => {
+                  console.log('📍 Cluster popup removed from map');
+                });
 
-              console.log('📍 Cluster popup opened:', {
-                locationName,
-                markersCount: clusterMarkersData.length,
-                popupId: cluster._leaflet_id
-              });
+                popup.on('close', () => {
+                  console.log('📍 Cluster popup closed');
+                });
 
-              // Render React component into popup
-              setTimeout(() => {
-                const container = document.getElementById(`clustered-trips-popup-${cluster._leaflet_id}`);
-                console.log('📍 Cluster popup container:', container);
-                if (container) {
-                  const root = ReactDOM.createRoot(container);
-                  root.render(
-                    <ClusteredTripsPopup
-                      markers={clusterMarkersData}
-                      locationName={locationName}
-                      onTripClick={(tripId) => {
-                        console.log('📍 Cluster trip clicked:', tripId);
-                        onMarkerClick?.(tripId);
-                        popup.close();
-                      }}
-                    />
-                  );
-                } else {
-                  console.error('❌ Cluster popup container not found');
-                }
-              }, 10);
+                // Create popup content
+                const popupContent = document.createElement('div');
+                popupContent.innerHTML = `
+                  <div id="clustered-trips-popup-${cluster._leaflet_id}"></div>
+                `;
+
+                console.log('📍 Popup content element created:', popupContent);
+                console.log('📍 Setting popup content and opening...');
+
+                popup.setLatLng(e.latlng).setContent(popupContent).openOn(mapInstance);
+
+                console.log('📍 Popup opened on map');
+                console.log('📍 Popup opened:', {
+                  locationName,
+                  markersCount: clusterMarkersData.length,
+                  popupId: cluster._leaflet_id,
+                  latlng: e.latlng
+                });
+
+                // Check if popup is actually visible
+                setTimeout(() => {
+                  const popupElement = document.querySelector('.leaflet-popup');
+                  console.log('📍 Popup element in DOM:', !!popupElement);
+                  if (popupElement) {
+                    console.log('📍 Popup element classes:', popupElement.className);
+                    console.log('📍 Popup element styles:', window.getComputedStyle(popupElement).display);
+                  }
+
+                  const container = document.getElementById(`clustered-trips-popup-${cluster._leaflet_id}`);
+                  console.log('📍 Cluster popup container:', container);
+                  if (container) {
+                    console.log('📍 Rendering React component into popup container');
+                    const root = ReactDOM.createRoot(container);
+                    root.render(
+                      <ClusteredTripsPopup
+                        markers={clusterMarkersData}
+                        locationName={locationName}
+                        onTripClick={(tripId) => {
+                          console.log('📍 Cluster trip clicked:', tripId);
+                          onMarkerClick?.(tripId);
+                          popup.close();
+                        }}
+                      />
+                    );
+                    console.log('📍 React component rendered');
+                  } else {
+                    console.error('❌ Cluster popup container not found');
+                    console.log('📍 Looking for container with ID:', `clustered-trips-popup-${cluster._leaflet_id}`);
+                    console.log('📍 All divs with clustered-trips-popup:', document.querySelectorAll('[id^="clustered-trips-popup-"]'));
+                  }
+                }, 10);
+              } else {
+                console.log('❌ No cluster markers data found');
+              }
+            } else {
+              console.log('📍 Cluster has only 1 marker, treating as individual');
             }
+          } else {
+            console.log('📍 This is not a cluster event - ignoring');
           }
-        } else {
-          console.log('📍 This is not a cluster event - ignoring');
+        } catch (error) {
+          console.error('❌ Error in cluster click handler:', error);
+          console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack');
         }
       };
 
