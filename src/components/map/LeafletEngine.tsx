@@ -94,10 +94,35 @@ export default function LeafletEngine({
   const handleClusterReady = useCallback((clusterGroup: any) => {
     console.log('📍 Cluster group ready callback received');
     console.log('📍 Cluster group:', clusterGroup);
+    console.log('📍 Cluster group type:', typeof clusterGroup);
+    console.log('📍 Cluster group constructor:', clusterGroup?.constructor?.name);
     console.log('📍 Cluster group methods:', Object.keys(clusterGroup));
+    console.log('📍 Cluster group prototype methods:', Object.keys(Object.getPrototypeOf(clusterGroup)));
 
     clusterGroupRef.current = clusterGroup;
     setClusterGroupReady(true);
+
+    // Check if markers are actually clustered
+    setTimeout(() => {
+      if (clusterGroupRef.current) {
+        console.log('📍 Checking cluster status after delay...');
+        const clusters = clusterGroupRef.current.getLayers();
+        console.log('📍 Total layers in cluster group:', clusters.length);
+
+        // Check if any are clusters
+        let clusterCount = 0;
+        clusters.forEach((layer: any) => {
+          if (layer.getAllChildMarkers && typeof layer.getAllChildMarkers === 'function') {
+            clusterCount++;
+            const childMarkers = layer.getAllChildMarkers();
+            console.log(`📍 Found cluster with ${childMarkers.length} markers`);
+          }
+        });
+
+        console.log('📍 Total clusters found:', clusterCount);
+        console.log('📍 Total individual markers:', clusters.length - clusterCount);
+      }
+    }, 1000);
 
     if (L) {
       console.log('📍 Attaching cluster click event handlers');
@@ -105,8 +130,11 @@ export default function LeafletEngine({
       const handleClusterClick = (e: any) => {
         console.log('📍 Cluster click event fired');
         console.log('📍 Event object:', e);
+        console.log('📍 Event type:', e.type);
         console.log('📍 Event layer:', e.layer);
         console.log('📍 Event source:', e.source);
+        console.log('📍 Event target:', e.target);
+        console.log('📍 Event latlng:', e.latlng);
 
         // Check if this is a cluster
         if (e.layer && typeof e.layer.getAllChildMarkers === 'function') {
@@ -193,11 +221,16 @@ export default function LeafletEngine({
       };
 
       // Try different event names
+      const eventNames = ['clusterclick', 'click', 'mouseover', 'mousedown', 'mouseup'];
+      eventNames.forEach(eventName => {
+        clusterGroup.on(eventName, (e: any) => {
+          console.log(`📍 Cluster ${eventName} event fired`, e);
+        });
+      });
+
+      // Attach the main handler
       clusterGroup.on('clusterclick', handleClusterClick);
       clusterGroup.on('click', handleClusterClick);
-      clusterGroup.on('mouseover', (e: any) => {
-        console.log('📍 Cluster mouseover event');
-      });
 
       console.log('📍 Event handlers attached to cluster group');
     }
