@@ -51,7 +51,8 @@ const MarkerClusterGroup = dynamic(
         }
       }, [onClusterReady]);
 
-      return <ClusterGroup ref={clusterRef} {...props}>{children}</ClusterGroup>;
+      const ClusterGroupAny = ClusterGroup as any;
+      return <ClusterGroupAny ref={clusterRef} {...props}>{children}</ClusterGroupAny>;
     };
   },
   { ssr: false }
