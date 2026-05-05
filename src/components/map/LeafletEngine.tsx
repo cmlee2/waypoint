@@ -74,6 +74,7 @@ export default function LeafletEngine({
   const [clusteredMarkers, setClusteredMarkers] = useState<Map<string, any>>(new Map());
   const [clusterGroupReady, setClusterGroupReady] = useState(false);
   const clusterGroupRef = useRef<any>(null);
+  const markerDataMap = useRef<Map<string, any>>(new Map()); // Store marker data by Leaflet ID
 
   useEffect(() => {
     // Import Leaflet directly for its L object (for icon creation)
@@ -151,10 +152,33 @@ export default function LeafletEngine({
             if (childMarkers.length > 1) {
               console.log('📍 Processing cluster with multiple markers');
 
-              // Get marker data from child markers
+              // Get marker data from child markers using the markerDataMap
               const clusterMarkersData = childMarkers.map((childMarker: any) => {
-                const markerData = markers.find(m => m.id === childMarker.options?.id);
-                console.log('📍 Child marker:', childMarker.options?.id, 'Found data:', !!markerData);
+                console.log('📍 Child marker details:', {
+                  marker: childMarker,
+                  leafletId: childMarker._leaflet_id,
+                  options: childMarker.options,
+                  hasOptions: !!childMarker.options,
+                  optionKeys: childMarker.options ? Object.keys(childMarker.options) : [],
+                  id: childMarker.options?.id,
+                  tripName: childMarker.options?.tripName
+                });
+
+                // Try to get marker data from the map using Leaflet ID
+                const leafletId = childMarker._leaflet_id;
+                let markerData = markerDataMap.current.get(leafletId);
+
+                // Fallback to options if map lookup fails
+                if (!markerData && childMarker.options?.id) {
+                  markerData = markers.find(m => m.id === childMarker.options?.id);
+                }
+
+                console.log('📍 Child marker lookup:', {
+                  leafletId,
+                  foundInMap: !!markerData,
+                  markerId: markerData?.id
+                });
+
                 return markerData;
               }).filter(Boolean);
 
@@ -390,6 +414,16 @@ export default function LeafletEngine({
                 placeName: marker.placeName,
                 photoCount: marker.photoCount,
                 photos: marker.photos
+              }}
+              ref={(markerRef) => {
+                if (markerRef) {
+                  // Store marker data by Leaflet ID when marker is created
+                  const leafletId = markerRef._leaflet_id;
+                  if (leafletId) {
+                    markerDataMap.current.set(leafletId, marker);
+                    console.log('📍 Stored marker data for Leaflet ID:', leafletId, 'Marker ID:', marker.id);
+                  }
+                }
               }}
               eventHandlers={{
                 click: (e: any) => {
