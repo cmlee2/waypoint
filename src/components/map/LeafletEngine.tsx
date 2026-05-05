@@ -153,46 +153,45 @@ export default function LeafletEngine({
             if (childMarkers.length > 1) {
               console.log('📍 Processing cluster with multiple markers');
 
-              // Get marker data from child markers using the markerDataMap
+              // Get marker data from child markers using position matching
               const clusterMarkersData = childMarkers.map((childMarker: any) => {
                 console.log('📍 Child marker details:', {
                   marker: childMarker,
                   leafletId: childMarker._leaflet_id,
+                  latlng: childMarker._latlng,
                   options: childMarker.options,
                   hasOptions: !!childMarker.options,
                   optionKeys: childMarker.options ? Object.keys(childMarker.options) : [],
-                  id: childMarker.options?.id,
-                  tripName: childMarker.options?.tripName
+                  optionValues: childMarker.options
                 });
 
-                // Try to get marker data from the map using Leaflet ID
-                const leafletId = childMarker._leaflet_id;
-                let markerData = markerDataMap.current.get(leafletId);
+                // Try to match by position since options are undefined
+                const childLat = childMarker._latlng?.lat;
+                const childLng = childMarker._latlng?.lng;
 
-                // Fallback to options if map lookup fails
-                if (!markerData && childMarker.options?.id) {
-                  markerData = markers.find(m => m.id === childMarker.options?.id);
-                }
+                console.log('📍 Looking for marker at position:', { lat: childLat, lng: childLng });
 
-                // If still no data, construct it from the child marker options directly
-                if (!markerData && childMarker.options) {
-                  console.log('📍 Constructing marker data from options');
-                  markerData = {
-                    id: childMarker.options.id,
-                    tripName: childMarker.options.tripName,
-                    placeName: childMarker.options.placeName,
-                    photoCount: childMarker.options.photoCount,
-                    photos: childMarker.options.photos,
-                    lat: childMarker._latlng?.lat,
-                    lng: childMarker._latlng?.lng
-                  };
-                }
+                // Find marker by position (with some tolerance for floating point)
+                const markerData = markers.find(m => {
+                  const latDiff = Math.abs(m.lat - childLat);
+                  const lngDiff = Math.abs(m.lng - childLng);
+                  const isMatch = latDiff < 0.0001 && lngDiff < 0.0001;
+                  console.log('📍 Comparing with marker:', {
+                    markerId: m.id,
+                    markerLat: m.lat,
+                    markerLng: m.lng,
+                    latDiff,
+                    lngDiff,
+                    isMatch
+                  });
+                  return isMatch;
+                });
 
                 console.log('📍 Child marker lookup:', {
-                  leafletId,
-                  foundInMap: !!markerData,
+                  position: { lat: childLat, lng: childLng },
+                  foundByPosition: !!markerData,
                   markerId: markerData?.id,
-                  dataSource: markerData ? (markerDataMap.current.has(leafletId) ? 'map' : 'options') : 'none'
+                  tripName: markerData?.tripName
                 });
 
                 return markerData;
@@ -213,8 +212,8 @@ export default function LeafletEngine({
                   });
                 });
 
-                // Get location name
-                const locationName = getLocationNameFromCluster(childMarkers);
+                // Get location name from the matched marker data instead of child marker options
+                const locationName = getLocationNameFromCluster(clusterMarkersData);
                 console.log('📍 Location name:', locationName);
 
                 // Create popup with clustered trips
@@ -358,11 +357,11 @@ export default function LeafletEngine({
     const placeNames = clusterMarkers
       .map(m => {
         console.log('📍 Processing marker for place name:', {
-          hasOptions: !!m.options,
-          optionsKeys: m.options ? Object.keys(m.options) : [],
-          placeName: m.options?.placeName
+          hasPlaceName: !!m.placeName,
+          placeName: m.placeName,
+          markerData: m
         });
-        return m.options?.placeName;
+        return m.placeName;
       })
       .filter(Boolean);
 
@@ -418,8 +417,18 @@ export default function LeafletEngine({
             const childMarkers = cluster.getAllChildMarkers();
             const count = childMarkers.length;
 
-            // Get location name from cluster
-            const locationName = getLocationNameFromCluster(childMarkers);
+            // Get location name from matched marker data instead of child marker options
+            const clusterMarkersData = childMarkers.map((childMarker: any) => {
+              const childLat = childMarker._latlng?.lat;
+              const childLng = childMarker._latlng?.lng;
+              return markers.find(m => {
+                const latDiff = Math.abs(m.lat - childLat);
+                const lngDiff = Math.abs(m.lng - childLng);
+                return latDiff < 0.0001 && lngDiff < 0.0001;
+              });
+            }).filter(Boolean);
+
+            const locationName = getLocationNameFromCluster(clusterMarkersData);
 
             // Create cluster icon
             return L.divIcon({
