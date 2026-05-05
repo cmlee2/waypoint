@@ -140,10 +140,41 @@ export default function LeafletEngine({
           console.log('📍 Event target:', e.target);
           console.log('📍 Event latlng:', e.latlng);
 
-          // Check if this is a cluster
-          if (e.layer && typeof e.layer.getAllChildMarkers === 'function') {
+          // Check if this is a cluster event by multiple methods
+          const isClusterEvent = e.layer && typeof e.layer.getAllChildMarkers === 'function';
+          const isClusterGroupEvent = e.source && typeof e.source.getAllChildMarkers === 'function';
+          const isTargetCluster = e.target && typeof e.target.getAllChildMarkers === 'function';
+
+          console.log('📍 Cluster detection:', {
+            isClusterEvent,
+            isClusterGroupEvent,
+            isTargetCluster,
+            layerType: e.layer?.constructor?.name,
+            sourceType: e.source?.constructor?.name,
+            targetType: e.target?.constructor?.name
+          });
+
+          // Get the cluster object from whichever source has it
+          let cluster = null;
+          if (isClusterEvent) {
+            cluster = e.layer;
+          } else if (isClusterGroupEvent) {
+            cluster = e.source;
+          } else if (isTargetCluster) {
+            cluster = e.target;
+          }
+
+          // Additional check: if event type is 'clusterclick', it should be a cluster
+          if (!cluster && e.type === 'clusterclick') {
+            console.log('📍 Event type is clusterclick, treating as cluster event');
+            // Try to get cluster from different sources
+            if (e.propagatedFrom && typeof e.propagatedFrom.getAllChildMarkers === 'function') {
+              cluster = e.propagatedFrom;
+            }
+          }
+
+          if (cluster) {
             console.log('📍 This is a cluster event');
-            const cluster = e.layer;
             const childMarkers = cluster.getAllChildMarkers();
             console.log('📍 Cluster clicked:', childMarkers.length, 'markers');
             console.log('📍 Child markers array:', childMarkers);
@@ -212,9 +243,96 @@ export default function LeafletEngine({
                   });
                 });
 
+                // Check if all markers are from the same trip
+                const uniqueTripIds = new Set(clusterMarkersData.map((m: any) => m.id));
+                const isSingleTrip = uniqueTripIds.size === 1;
+
+                console.log('📍 Cluster analysis:', {
+                  totalMarkers: clusterMarkersData.length,
+                  uniqueTrips: uniqueTripIds.size,
+                  isSingleTrip,
+                  tripIds: Array.from(uniqueTripIds)
+                });
+
                 // Get location name from the matched marker data instead of child marker options
                 const locationName = getLocationNameFromCluster(clusterMarkersData);
                 console.log('📍 Location name:', locationName);
+
+                // If all markers are from the same trip, show photo grid instead of trip list
+                if (isSingleTrip) {
+                  console.log('📍 Single trip cluster - showing photo grid');
+                  const singleTripData = clusterMarkersData[0];
+
+                  // Create popup with photo grid
+                  const popup = L.popup({
+                    className: 'travel-popup',
+                    autoClose: false,
+                    closeOnClick: false,
+                    closeButton: true,
+                    minWidth: 280,
+                    maxWidth: 320,
+                    keepInView: true
+                  });
+
+                  // Add popup lifecycle debugging
+                  popup.on('add', () => {
+                    console.log('📍 Single trip popup added to map');
+                  });
+
+                  popup.on('remove', () => {
+                    console.log('📍 Single trip popup removed from map');
+                  });
+
+                  popup.on('close', () => {
+                    console.log('📍 Single trip popup closed');
+                  });
+
+                  // Create popup content
+                  const popupContent = document.createElement('div');
+                  popupContent.innerHTML = `
+                    <div id="single-trip-popup-${cluster._leaflet_id}"></div>
+                  `;
+
+                  console.log('📍 Single trip popup content element created:', popupContent);
+                  console.log('📍 Setting single trip popup content and opening...');
+
+                  popup.setLatLng(e.latlng).setContent(popupContent).openOn(mapInstance);
+
+                  console.log('📍 Single trip popup opened on map');
+
+                  // Check if popup is actually visible
+                  setTimeout(() => {
+                    const popupElement = document.querySelector('.leaflet-popup');
+                    console.log('📍 Popup element in DOM:', !!popupElement);
+                    if (popupElement) {
+                      console.log('📍 Popup element classes:', popupElement.className);
+                      console.log('📍 Popup element styles:', window.getComputedStyle(popupElement).display);
+                    }
+
+                    const container = document.getElementById(`single-trip-popup-${cluster._leaflet_id}`);
+                    console.log('📍 Single trip popup container:', container);
+                    if (container) {
+                      console.log('📍 Rendering PhotoGridPopup into popup container');
+                      const root = ReactDOM.createRoot(container);
+                      root.render(
+                        <PhotoGridPopup
+                          marker={singleTripData}
+                          onSeeDetails={() => {
+                            console.log('📍 See Details clicked for single trip:', singleTripData.id);
+                            onMarkerClick?.(singleTripData.id);
+                            popup.close();
+                          }}
+                        />
+                      );
+                      console.log('📍 PhotoGridPopup rendered');
+                    } else {
+                      console.error('❌ Single trip popup container not found');
+                    }
+                  }, 10);
+
+                } else {
+                  // Multiple trips - show trip list
+                  console.log('📍 Multiple trips cluster - showing trip list');
 
                 // Create popup with clustered trips
                 const popup = L.popup({
