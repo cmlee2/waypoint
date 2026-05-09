@@ -20,12 +20,12 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
   const photoToMarkerIdMap = new Map<string, string>(); // photoId -> markerId
 
   trip.photos.forEach((p: any) => {
-    if (p.lat && p.lng) {
-      const key = `${p.lat},${p.lng}`;
+    if (typeof p.lat === 'number' && typeof p.lng === 'number') {
+      const key = `${p.lat.toFixed(6)},${p.lng.toFixed(6)}`;
       if (!locationMap.has(key)) {
         locationMap.set(key, []);
         markers.push({
-          id: p.id,
+          id: `marker-${p.lat.toFixed(6)}-${p.lng.toFixed(6)}`,
           lat: p.lat,
           lng: p.lng,
           label: p.caption || 'Memory',
@@ -39,17 +39,16 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
       locationMap.get(key)?.push(p.id);
 
       // Find the marker we just created or already existed for this location
-      const markerId = markers.find(m => m.lat === p.lat && m.lng === p.lng)?.id;
-      if (markerId) photoToMarkerIdMap.set(p.id, markerId);
+      const markerId = `marker-${p.lat.toFixed(6)}-${p.lng.toFixed(6)}`;
+      photoToMarkerIdMap.set(p.id, markerId);
     }
   });
 
   // Update markers with full data from their location
   markers.forEach(m => {
-    const key = `${m.lat},${m.lng}`;
+    const key = `${m.lat.toFixed(6)},${m.lng.toFixed(6)}`;
     const ids = locationMap.get(key) || [];
     m.photoCount = ids.length;
-
     // Populate with all photos at this spot for the grid
     const spotPhotos = trip.photos.filter((p: any) => ids.includes(p.id));
     m.photos = spotPhotos.map((p: any) => ({
@@ -83,7 +82,9 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
   const getSelectedLocationIds = () => {
     if (!selectedPhotoId) return [];
     const selectedPhoto = trip.photos.find((p: any) => p.id === selectedPhotoId);
-    if (!selectedPhoto || !selectedPhoto.lat || !selectedPhoto.lng) return [selectedPhotoId];
+    if (!selectedPhoto || typeof selectedPhoto.lat !== 'number' || typeof selectedPhoto.lng !== 'number') {
+      return [selectedPhotoId];
+    }
 
     const key = `${selectedPhoto.lat},${selectedPhoto.lng}`;
     return locationMap.get(key) || [selectedPhotoId];
@@ -93,13 +94,13 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
 
   // Use smart centering to calculate optimal center and zoom
   const centeringResult = calculateSmartCentering(markers, {
-    minZoom: 5,
+    minZoom: 2,
     maxZoom: 15,
     paddingFactor: 0.1, // Add 10% padding for better visualization
   });
 
-  const initialCenter = centeringResult.center;
-  const initialZoom = centeringResult.zoom;
+  const initialCenter = markers.length > 0 ? centeringResult.center : { lat: 0, lng: 0 };
+  const initialZoom = markers.length > 0 ? centeringResult.zoom : 2;
 
   const handleShare = async () => {
     try {
