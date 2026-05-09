@@ -130,10 +130,10 @@ export default function LeafletEngine({
                     const combinedMarker = {
                       ...clusterMarkersData[0],
                       photoCount: clusterMarkersData.length,
-                      photos: clusterMarkersData.flatMap(m => m.photos || []),
+                      photos: clusterMarkersData.flatMap((m: any) => m.photos || []),
                       placeName: locationName,
-                      startDate: clusterMarkersData.map(m => m.startDate).filter(Boolean).sort()[0],
-                      endDate: clusterMarkersData.map(m => m.endDate).filter(Boolean).sort().reverse()[0]
+                      startDate: clusterMarkersData.map((m: any) => m.startDate).filter(Boolean).sort()[0],
+                      endDate: clusterMarkersData.map((m: any) => m.endDate).filter(Boolean).sort().reverse()[0]
                     };
                     root.render(
                       <PhotoGridPopup 
