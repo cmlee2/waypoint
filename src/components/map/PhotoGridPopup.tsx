@@ -24,7 +24,11 @@ export default function PhotoGridPopup({ marker, onSeeDetails }: PhotoGridPopupP
   const formatDate = (dateString?: string) => {
     if (!dateString) return '';
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
   };
 
   const getDateRange = (startDate?: string, endDate?: string) => {
@@ -106,73 +110,46 @@ export default function PhotoGridPopup({ marker, onSeeDetails }: PhotoGridPopupP
   };
 
   const isIndividualMemory = photoCount === 1 || (photos.length === 0 && marker.imageUrl);
-  const buttonText = isIndividualMemory ? 'View in Timeline' : 'See Details';
 
   return (
-    <div className="p-4 min-w-[280px] max-w-[320px] bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl shadow-xl border-2 border-amber-200">
+    <div className="p-4 min-w-[280px] max-w-[320px] bg-white rounded-xl shadow-xl border border-stone-100">
       {/* Photo Grid */}
-      <div className="aspect-square mb-4 rounded-lg overflow-hidden border-2 border-amber-200 shadow-inner">
+      <div className="aspect-square mb-4 rounded-lg overflow-hidden border border-stone-100 shadow-sm">
         {renderPhotoGrid()}
       </div>
 
-      {/* Trip Info */}
-      <div className="space-y-3">
-        <div>
-          <h3 className="font-bold text-amber-900 text-lg leading-tight">
-            {marker.tripName || marker.label || 'Trip'}
-          </h3>
+      {/* Info Container */}
+      <div className="space-y-2">
+        <h3 className="font-bold text-stone-900 text-lg leading-tight">
+          {marker.label || marker.tripName || 'Memory'}
+        </h3>
 
-          {/* Date Range */}
+        <div className="flex flex-col gap-1.5">
+          {/* Date */}
           {getDateRange(marker.startDate, marker.endDate) && (
-            <div className="flex items-center gap-2 mt-2 text-sm text-amber-700">
-              <Calendar size={14} />
+            <div className="flex items-center gap-2 text-sm text-stone-500 font-medium">
+              <Calendar size={14} className="text-stone-400" />
               <span>{getDateRange(marker.startDate, marker.endDate)}</span>
             </div>
           )}
 
-          <div className="flex items-center gap-2 mt-2 text-sm">
-            <span className="text-amber-700 font-medium flex items-center gap-1">
-              {photoCount > 0 ? (
-                <>
-                  {photoCount} {photoCount === 1 ? 'memory' : 'memories'}
-                </>
-              ) : marker.imageUrl ? (
-                '1 memory'
-              ) : (
-                'No memories'
-              )}
-            </span>
-            {marker.isPublic && !marker.isMine && (
-              <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider text-[10px] border border-amber-200">
-                Shared
+          {/* Location */}
+          {marker.placeName && (
+            <div className="flex items-start gap-2 text-sm text-stone-600">
+              <MapPin size={14} className="text-red-500 mt-0.5 flex-shrink-0" />
+              <span className="leading-snug">{marker.placeName}</span>
+            </div>
+          )}
+
+          {/* Photo Count (if > 1) */}
+          {photoCount > 1 && (
+            <div className="mt-1 pt-2 border-t border-stone-50">
+              <span className="text-xs font-bold text-stone-400 uppercase tracking-widest">
+                {photoCount} Memories at this spot
               </span>
-            )}
-          </div>
+            </div>
+          )}
         </div>
-
-        {marker.placeName && (
-          <p className="text-xs text-amber-600 italic flex items-center gap-1">
-            <MapPin size={12} />
-            {marker.placeName}
-          </p>
-        )}
-
-        {/* See Details Button */}
-        {onSeeDetails && (
-          <button
-            type="button"
-            onClick={(e) => {
-              console.log('🖼️ See Details button clicked in PhotoGridPopup');
-              e.stopPropagation();
-              e.preventDefault();
-              onSeeDetails();
-            }}
-            className="w-full mt-4 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white px-4 py-2.5 rounded-xl font-medium transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
-          >
-            <Eye size={16} />
-            {buttonText}
-          </button>
-        )}
       </div>
     </div>
   );

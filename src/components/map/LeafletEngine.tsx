@@ -69,6 +69,7 @@ export default function LeafletEngine({
   markers,
   onMarkerClick,
   selectedMarkerId,
+  showSeeDetails = true,
   className
 }: TripMapProps) {
   const [L, setL] = useState<any>(null);
@@ -351,11 +352,10 @@ export default function LeafletEngine({
                       root.render(
                         <PhotoGridPopup
                           marker={singleTripData}
-                          onSeeDetails={() => {
-                            console.log('📍 See Details clicked for single trip:', singleTripData.id);
+                          onSeeDetails={showSeeDetails ? () => {
                             onMarkerClick?.(singleTripData.id);
                             popup.close();
-                          }}
+                          } : undefined}
                         />
                       );
                       console.log('📍 PhotoGridPopup rendered');
@@ -636,30 +636,12 @@ export default function LeafletEngine({
               eventHandlers={{
                 click: (e: any) => {
                   console.log('📍 Individual marker clicked:', marker.id, marker.tripName);
-                  console.log('📍 Marker event object:', e);
-                  console.log('📍 Event target:', e.target);
-                  console.log('📍 Event source:', e.source);
 
-                  // Check if this is actually a cluster event (shouldn't happen, but let's be safe)
-                  if (e.source && typeof e.source.getAllChildMarkers === 'function') {
-                    console.log('⚠️ WARNING: Cluster event triggered on individual marker!');
-                    return; // Don't process cluster events here
-                  }
-
-                  // Open popup immediately
+                  // Open popup
                   e.target.openPopup();
 
-                  // Force popup to stay open
-                  setTimeout(() => {
-                    const popup = e.target.getPopup();
-                    if (popup) {
-                      popup.options.autoClose = false;
-                      popup.options.closeOnClick = false;
-                      console.log('📍 Popup configured to stay open for:', marker.id);
-                    }
-                  }, 0);
-
-                  // Removed onMarkerClick call - popup stays open, zoom only happens on "See Details" button click
+                  // Trigger sidebar selection/scroll
+                  onMarkerClick?.(marker.id);
                 },
                 popupopen: (e: any) => {
                   console.log('📍 Popup opened for:', marker.id);
@@ -681,10 +663,7 @@ export default function LeafletEngine({
               >
                 <PhotoGridPopup
                   marker={marker}
-                  onSeeDetails={() => {
-                    console.log('📍 See Details clicked for trip:', marker.id, marker.tripName);
-                    onMarkerClick?.(marker.id);
-                  }}
+                  onSeeDetails={showSeeDetails ? () => onMarkerClick?.(marker.id) : undefined}
                 />
               </Popup>
             </Marker>

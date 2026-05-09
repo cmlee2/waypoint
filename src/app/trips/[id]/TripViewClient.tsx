@@ -1,6 +1,4 @@
-'use client';
-
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import MapDisplay from '@/components/map/MapDisplay';
 import { MapMarker } from '@/types/map';
 import { ArrowLeft, Calendar, Globe, Lock, Share2 } from 'lucide-react';
@@ -10,26 +8,86 @@ import { calculateSmartCentering } from '@/utils/map/smartCentering';
 export default function TripViewClient({ trip, isMine }: { trip: any, isMine: boolean }) {
   const router = useRouter();
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
+  const photoRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const sidebarRef = useRef<HTMLDivElement>(null);
 
   // Generate markers from photos that have coordinates
-  const markers: MapMarker[] = trip.photos
-    .filter((p: any) => p.lat && p.lng)
-    .map((p: any) => ({
+  // We want one marker per location, but keep track of all photo IDs at that location
+  const markers: MapMarker[] = [];
+  const locationMap = new Map<string, string[]>(); // lat,lng -> photoIds[]
+  const photoToMarkerIdMap = new Map<string, string>(); // photoId -> markerId
+
+  trip.photos.forEach((p: any) => {
+    if (p.lat && p.lng) {
+      const key = `${p.lat},${p.lng}`;
+      if (!locationMap.has(key)) {
+        locationMap.set(key, []);
+        markers.push({
+          id: p.id,
+          lat: p.lat,
+          lng: p.lng,
+          label: p.caption || 'Memory',
+          imageUrl: p.storage_url,
+          placeName: p.place_name,
+          photoCount: 0,
+          startDate: p.taken_at,
+          photos: []
+        });
+      }
+      locationMap.get(key)?.push(p.id);
+
+      // Find the marker we just created or already existed for this location
+      const markerId = markers.find(m => m.lat === p.lat && m.lng === p.lng)?.id;
+      if (markerId) photoToMarkerIdMap.set(p.id, markerId);
+    }
+  });
+
+  // Update markers with full data from their location
+  markers.forEach(m => {
+    const key = `${m.lat},${m.lng}`;
+    const ids = locationMap.get(key) || [];
+    m.photoCount = ids.length;
+
+    // Populate with all photos at this spot for the grid
+    const spotPhotos = trip.photos.filter((p: any) => ids.includes(p.id));
+    m.photos = spotPhotos.map((p: any) => ({
       id: p.id,
+      storage_url: p.storage_url,
+      caption: p.caption,
       lat: p.lat,
-      lng: p.lng,
-      label: p.caption || 'Memory',
-      imageUrl: p.storage_url,
-      placeName: p.place_name,
-      photoCount: 1,
-      photos: [{
-        id: p.id,
-        storage_url: p.storage_url,
-        caption: p.caption,
-        lat: p.lat,
-        lng: p.lng
-      }]
+      lng: p.lng
     }));
+
+    // Use the most relevant caption as the label
+    const photoWithCaption = spotPhotos.find((p: any) => p.caption);
+    if (photoWithCaption) {
+      m.label = photoWithCaption.caption;
+    }
+  });
+
+  const selectedMarkerId = selectedPhotoId ? photoToMarkerIdMap.get(selectedPhotoId) : null;
+
+  // Scroll to selected photo when selectedPhotoId changes
+  useEffect(() => {
+    if (selectedPhotoId && photoRefs.current.has(selectedPhotoId)) {
+      const element = photoRefs.current.get(selectedPhotoId);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [selectedPhotoId]);
+
+  // Find if multiple photos are at the same location as the selected one
+  const getSelectedLocationIds = () => {
+    if (!selectedPhotoId) return [];
+    const selectedPhoto = trip.photos.find((p: any) => p.id === selectedPhotoId);
+    if (!selectedPhoto || !selectedPhoto.lat || !selectedPhoto.lng) return [selectedPhotoId];
+
+    const key = `${selectedPhoto.lat},${selectedPhoto.lng}`;
+    return locationMap.get(key) || [selectedPhotoId];
+  };
+
+  const selectedLocationIds = getSelectedLocationIds();
 
   // Use smart centering to calculate optimal center and zoom
   const centeringResult = calculateSmartCentering(markers, {
@@ -56,9 +114,12 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
   };
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row h-[calc(100vh-4rem)]">
+    <div className="flex-1 flex flex-col md:flex-row h-[calc(100vh-4rem)] overflow-hidden">
       {/* Sidebar: Trip Info & Timeline */}
-      <aside className="w-full md:w-96 lg:w-[400px] bg-white border-r border-stone-200 overflow-y-auto flex flex-col z-10 shadow-xl md:shadow-none">
+      <aside
+        ref={sidebarRef}
+        className="w-full md:w-96 lg:w-[400px] bg-white border-r border-stone-200 overflow-y-auto flex flex-col z-10 shadow-xl md:shadow-none"
+      >
         {/* Header */}
         <div className="p-6 border-b border-stone-100 sticky top-0 bg-white/95 backdrop-blur z-20">
           <button
@@ -110,11 +171,12 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
           ) : (
             <div className="relative border-l-2 border-stone-200 ml-4 space-y-10 pb-8">
               {trip.photos.map((photo: any, index: number) => {
-                const isSelected = selectedPhotoId === photo.id;
+                const isSelected = selectedLocationIds.includes(photo.id);
                 
                 return (
                   <div 
                     key={photo.id} 
+                    ref={el => { if (el) photoRefs.current.set(photo.id, el); }}
                     className="relative pl-8 cursor-pointer group"
                     onClick={() => setSelectedPhotoId(photo.id)}
                   >
@@ -127,7 +189,7 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
                     {/* Photo Card */}
                     <div className={`
                       bg-white rounded-2xl border overflow-hidden transition-all shadow-sm hover:shadow-md
-                      ${isSelected ? 'border-stone-400 ring-2 ring-stone-100' : 'border-stone-200'}
+                      ${isSelected ? 'border-stone-400 ring-4 ring-stone-100' : 'border-stone-200'}
                     `}>
                       <div className="aspect-[4/3] bg-stone-100 relative">
                         <img 
@@ -142,7 +204,7 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
                           {photo.taken_at && (
                             <p className="text-xs font-bold text-stone-400 uppercase tracking-wider">
                               {new Date(photo.taken_at).toLocaleDateString(undefined, { 
-                                month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' 
+                                month: 'short', day: 'numeric', year: 'numeric'
                               })}
                             </p>
                           )}
@@ -161,14 +223,15 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
       </aside>
 
       {/* Main Content: Map */}
-      <main className="flex-1 relative bg-stone-100 h-[50vh] md:h-auto">
+      <main className="flex-1 relative bg-stone-100 h-full">
         <MapDisplay
           provider="leaflet"
           center={initialCenter}
           zoom={initialZoom}
           markers={markers}
-          selectedMarkerId={selectedPhotoId}
+          selectedMarkerId={selectedMarkerId}
           onMarkerClick={setSelectedPhotoId}
+          showSeeDetails={false}
           className="w-full h-full"
         />
         <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_100px_rgba(0,0,0,0.05)]" />
