@@ -9,6 +9,10 @@ import 'leaflet/dist/leaflet.css';
 import 'react-leaflet-markercluster/styles';
 import ReactDOM from 'react-dom/client';
 
+// CartoDB Positron - Minimalist light style
+const TILE_LAYER_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+const ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
 export default function LeafletEngine({ 
   center, 
   zoom, 
