@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect, useRef } from 'react';
 import MapDisplay from '@/components/map/MapDisplay';
 import { MapMarker } from '@/types/map';
