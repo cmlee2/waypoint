@@ -139,10 +139,30 @@ export async function GET(request: NextRequest) {
       return errorResponse;
     }
 
+    // Store access token in secure httpOnly cookie instead of URL parameter
+    const response = NextResponse.redirect(new URL(returnUrl, request.url));
+
+    // Set secure httpOnly cookie with the access token
+    response.cookies.set('google_access_token', tokenData.access_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60, // 1 hour
+      path: '/'
+    });
+
+    // Store refresh token in separate cookie if available
+    if (tokenData.refresh_token) {
+      response.cookies.set('google_refresh_token', tokenData.refresh_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+        path: '/'
+      });
+    }
+
     // Clear the state cookie
-    const response = NextResponse.redirect(
-      new URL(`${returnUrl}?google_token=${tokenData.access_token}`, request.url)
-    );
     response.cookies.delete('google_oauth_state');
 
     console.log('🎯 Redirecting to:', returnUrl);

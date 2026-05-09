@@ -46,6 +46,10 @@ export default function ClusteredTripsPopup({
     return formatDate(startDate || endDate);
   };
 
+    const isIndividualMemories = markers.every(m => !m.tripName);
+    const unitLabel = isIndividualMemories ? (markers.length === 1 ? 'memory' : 'memories') : (markers.length === 1 ? 'trip' : 'trips');
+    const buttonText = isIndividualMemories ? 'View in Timeline' : 'See Details';
+
   return (
     <div className="p-4 min-w-[320px] max-w-[380px] bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl shadow-xl border-2 border-amber-200">
       {/* Location Header */}
@@ -57,7 +61,7 @@ export default function ClusteredTripsPopup({
           </h2>
         </div>
         <p className="text-xs text-amber-600 italic">
-          {markers.length} {markers.length === 1 ? 'trip' : 'trips'} in this area
+          {markers.length} {unitLabel} in this area
         </p>
       </div>
 
@@ -103,7 +107,7 @@ export default function ClusteredTripsPopup({
               className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
             >
               <Eye size={14} />
-              See Details
+              {buttonText}
             </button>
           </div>
         ))}

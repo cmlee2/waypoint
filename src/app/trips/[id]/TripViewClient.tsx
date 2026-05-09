@@ -20,6 +20,15 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
       lng: p.lng,
       label: p.caption || 'Memory',
       imageUrl: p.storage_url,
+      placeName: p.place_name,
+      photoCount: 1,
+      photos: [{
+        id: p.id,
+        storage_url: p.storage_url,
+        caption: p.caption,
+        lat: p.lat,
+        lng: p.lng
+      }]
     }));
 
   // Use smart centering to calculate optimal center and zoom
@@ -158,6 +167,7 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
           center={initialCenter}
           zoom={initialZoom}
           markers={markers}
+          selectedMarkerId={selectedPhotoId}
           onMarkerClick={setSelectedPhotoId}
           className="w-full h-full"
         />

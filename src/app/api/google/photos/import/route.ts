@@ -16,15 +16,18 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // Get access token from secure cookie instead of request body
+    const accessToken = request.cookies.get('google_access_token')?.value;
+
+    if (!accessToken) {
+      return NextResponse.json({ error: 'No access token found' }, { status: 401 });
+    }
+
     const body = await request.json();
-    const { photos, tripId, accessToken } = body;
+    const { photos, tripId } = body;
 
     if (!photos || !Array.isArray(photos) || photos.length === 0) {
       return NextResponse.json({ error: 'No photos provided' }, { status: 400 });
-    }
-
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Access token required' }, { status: 400 });
     }
 
     // Initialize Supabase client

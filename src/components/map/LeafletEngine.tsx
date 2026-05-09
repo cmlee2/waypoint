@@ -68,6 +68,7 @@ export default function LeafletEngine({
   zoom,
   markers,
   onMarkerClick,
+  selectedMarkerId,
   className
 }: TripMapProps) {
   const [L, setL] = useState<any>(null);
@@ -76,6 +77,39 @@ export default function LeafletEngine({
   const [clusterGroupReady, setClusterGroupReady] = useState(false);
   const clusterGroupRef = useRef<any>(null);
   const markerDataMap = useRef<Map<string, any>>(new Map()); // Store marker data by Leaflet ID
+  const markersRef = useRef<Map<string, any>>(new Map()); // Store Leaflet Marker instances by our ID
+
+  // Handle external selection (e.g. from timeline)
+  useEffect(() => {
+    if (mapInstance && selectedMarkerId && clusterGroupRef.current) {
+      console.log('📍 External selection detected:', selectedMarkerId);
+      
+      // Find the marker in our ref
+      const marker = markersRef.current.get(selectedMarkerId);
+      
+      if (marker) {
+        // 1. Find if marker is currently inside a cluster
+        const visibleParent = clusterGroupRef.current.getVisibleParent(marker);
+        
+        if (visibleParent && visibleParent !== marker) {
+          // Marker is clustered, zoom into the cluster first
+          console.log('📍 Marker is clustered, zooming in...');
+          clusterGroupRef.current.zoomToShowLayer(marker, () => {
+            // After zooming, the marker should be visible
+            setTimeout(() => {
+              mapInstance.panTo(marker.getLatLng());
+              marker.openPopup();
+            }, 100);
+          });
+        } else {
+          // Marker is directly visible
+          console.log('📍 Marker is visible, panning and opening popup');
+          mapInstance.panTo(marker.getLatLng());
+          marker.openPopup();
+        }
+      }
+    }
+  }, [selectedMarkerId, mapInstance, clusterGroupReady]);
 
   useEffect(() => {
     // Import Leaflet directly for its L object (for icon creation)
@@ -588,6 +622,9 @@ export default function LeafletEngine({
               }}
               ref={(markerRef: LeafletMarker | null) => {
                 if (markerRef) {
+                  // Store marker instance by our ID
+                  markersRef.current.set(marker.id, markerRef);
+
                   // Store marker data by Leaflet ID when marker is created
                   const leafletId = (markerRef as any)._leaflet_id;
                   if (leafletId) {

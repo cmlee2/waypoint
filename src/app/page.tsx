@@ -28,7 +28,8 @@ export default async function HomePage() {
         storage_url,
         caption,
         lat,
-        lng
+        lng,
+        place_name
       )
     `)
     .order('created_at', { ascending: false });
@@ -75,6 +76,7 @@ export default async function HomePage() {
         label: trip.name,
         imageUrl: firstValidPhoto.storage_url,
         tripName: trip.name,
+        placeName: firstValidPhoto.place_name,
         photoCount: trip.photos?.length || 0,
         isPublic: Boolean(trip.is_public),
         isMine: trip.user_id === userId,

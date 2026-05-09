@@ -52,24 +52,27 @@ export default function PhotoUploader({
   const [placeOptions, setPlaceOptions] = useState<Array<{ name: string; type: string; displayName: string; address?: string }>>([]);
   const [isLookingUpPlaces, setIsLookingUpPlaces] = useState(false);
 
-  // Extract Google token from URL on mount (only once)
+  // Fetch Google token from secure cookie on mount (only once)
   useEffect(() => {
     if (hasCheckedForToken) return;
 
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('google_token');
-    if (token) {
-      console.log('Google Photos token found in URL:', token.substring(0, 20) + '...');
-      setGoogleAccessToken(token);
-      setGooglePhotosOpen(true);
+    const fetchToken = async () => {
+      try {
+        const response = await fetch('/api/google/token');
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Google Photos token found in secure cookie:', data.access_token.substring(0, 20) + '...');
+          setGoogleAccessToken(data.access_token);
+          setGooglePhotosOpen(true);
+        }
+      } catch (error) {
+        console.error('Failed to fetch Google token:', error);
+      } finally {
+        setHasCheckedForToken(true);
+      }
+    };
 
-      // Clean up URL
-      const url = new URL(window.location.href);
-      url.searchParams.delete('google_token');
-      window.history.replaceState({}, '', url.toString());
-    }
-
-    setHasCheckedForToken(true);
+    fetchToken();
   }, [hasCheckedForToken]);
 
   const extractMetadata = useCallback(async (file: File) => {
@@ -382,6 +385,16 @@ export default function PhotoUploader({
     window.location.href = authUrl;
   };
 
+  const clearGoogleToken = async () => {
+    try {
+      await fetch('/api/google/token', { method: 'DELETE' });
+      setGoogleAccessToken(null);
+      console.log('Google token cleared');
+    } catch (error) {
+      console.error('Failed to clear Google token:', error);
+    }
+  };
+
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     onDrop,
     accept: { 'image/*': [] },
@@ -589,7 +602,11 @@ export default function PhotoUploader({
       {/* Google Photos Picker */}
       <GooglePhotosPicker
         isOpen={googlePhotosOpen}
-        onClose={() => setGooglePhotosOpen(false)}
+        onClose={() => {
+          setGooglePhotosOpen(false);
+          // Clear token after closing picker for security
+          clearGoogleToken();
+        }}
         onPhotosSelected={handleGooglePhotosImport}
         accessToken={googleAccessToken || ''}
         maxPhotos={15 - photos.length}

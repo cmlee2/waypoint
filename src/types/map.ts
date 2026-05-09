@@ -30,5 +30,6 @@ export interface TripMapProps {
   zoom: number;
   markers: MapMarker[];
   onMarkerClick?: (id: string) => void;
+  selectedMarkerId?: string | null;
   className?: string;
 }

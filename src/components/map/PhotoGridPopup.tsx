@@ -54,6 +54,18 @@ export default function PhotoGridPopup({ marker, onSeeDetails }: PhotoGridPopupP
   };
 
   const renderPhotoGrid = () => {
+    if (photos.length === 0 && marker.imageUrl) {
+      return (
+        <div className="w-full h-full overflow-hidden rounded-lg">
+          <img
+            src={marker.imageUrl}
+            alt={marker.label || 'Photo'}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      );
+    }
+
     if (photos.length === 0) {
       return (
         <div className="aspect-square bg-gradient-to-br from-amber-100 to-orange-100 rounded-lg flex items-center justify-center border-2 border-amber-200">
@@ -93,6 +105,9 @@ export default function PhotoGridPopup({ marker, onSeeDetails }: PhotoGridPopupP
     );
   };
 
+  const isIndividualMemory = photoCount === 1 || (photos.length === 0 && marker.imageUrl);
+  const buttonText = isIndividualMemory ? 'View in Timeline' : 'See Details';
+
   return (
     <div className="p-4 min-w-[280px] max-w-[320px] bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl shadow-xl border-2 border-amber-200">
       {/* Photo Grid */}
@@ -117,7 +132,15 @@ export default function PhotoGridPopup({ marker, onSeeDetails }: PhotoGridPopupP
 
           <div className="flex items-center gap-2 mt-2 text-sm">
             <span className="text-amber-700 font-medium flex items-center gap-1">
-              {photoCount} {photoCount === 1 ? 'memory' : 'memories'}
+              {photoCount > 0 ? (
+                <>
+                  {photoCount} {photoCount === 1 ? 'memory' : 'memories'}
+                </>
+              ) : marker.imageUrl ? (
+                '1 memory'
+              ) : (
+                'No memories'
+              )}
             </span>
             {marker.isPublic && !marker.isMine && (
               <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider text-[10px] border border-amber-200">
@@ -147,7 +170,7 @@ export default function PhotoGridPopup({ marker, onSeeDetails }: PhotoGridPopupP
             className="w-full mt-4 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white px-4 py-2.5 rounded-xl font-medium transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
           >
             <Eye size={16} />
-            See Details
+            {buttonText}
           </button>
         )}
       </div>

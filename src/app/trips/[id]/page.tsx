@@ -24,7 +24,8 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
         caption,
         lat,
         lng,
-        taken_at
+        taken_at,
+        place_name
       )
     `)
     .eq('id', id)
