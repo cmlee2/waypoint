@@ -86,7 +86,7 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
       return [selectedPhotoId];
     }
 
-    const key = `${selectedPhoto.lat},${selectedPhoto.lng}`;
+    const key = `${selectedPhoto.lat.toFixed(6)},${selectedPhoto.lng.toFixed(6)}`;
     return locationMap.get(key) || [selectedPhotoId];
   };
 
@@ -226,7 +226,7 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
       </aside>
 
       {/* Main Content: Map */}
-      <main className="flex-1 relative bg-stone-100 h-full">
+      <main className="flex-1 relative bg-stone-100 h-full min-h-[500px]">
         <MapDisplay
           provider="leaflet"
           center={initialCenter}
