@@ -1,63 +1,18 @@
 'use client';
 
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { TripMapProps } from '@/types/map';
 import { truncatePlaceName } from '@/utils/location/formatAddress';
 import PhotoGridPopup from './PhotoGridPopup';
-import ClusteredTripsPopup from './ClusteredTripsPopup';
 import 'leaflet/dist/leaflet.css';
-import 'react-leaflet-markercluster/styles';
-import type { Marker as LeafletMarker } from 'leaflet';
-
-// Import ReactDOM for client-side rendering
-import ReactDOM from 'react-dom/client';
 
 // Dynamically import Leaflet components (no SSR)
 const MapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapContainer), { ssr: false });
 const TileLayer = dynamic(() => import('react-leaflet').then(mod => mod.TileLayer), { ssr: false });
-const Marker = dynamic(
-  () => import('react-leaflet').then(mod => mod.Marker),
-  { ssr: false }
-) as React.ComponentType<any>;
+const Marker = dynamic(() => import('react-leaflet').then(mod => mod.Marker), { ssr: false });
 const Popup = dynamic(() => import('react-leaflet').then(mod => mod.Popup), { ssr: false });
 const ZoomControl = dynamic(() => import('react-leaflet').then(mod => mod.ZoomControl), { ssr: false });
-
-type MarkerClusterGroupProps = React.PropsWithChildren<{
-  showCoverageOnHover?: boolean;
-  zoomToBoundsOnClick?: boolean;
-  spiderfyOnMaxZoom?: boolean;
-  maxClusterRadius?: number;
-  disableClusteringAtZoom?: number;
-  iconCreateFunction?: (cluster: any) => any;
-  onClusterReady?: (clusterGroup: any) => void;
-}>;
-
-const MarkerClusterGroup = dynamic(
-  async () => {
-    const mod = await import('react-leaflet-markercluster');
-    const ClusterGroup = mod.default as React.ComponentType<MarkerClusterGroupProps>;
-
-    return function MarkerClusterGroupWrapper({
-      children,
-      onClusterReady,
-      ...props
-    }: MarkerClusterGroupProps & { onClusterReady?: (clusterGroup: any) => void }) {
-      const clusterRef = useRef<any>(null);
-
-      useEffect(() => {
-        if (clusterRef.current) {
-          console.log('📍 MarkerClusterGroup mounted, ref available');
-          onClusterReady?.(clusterRef.current);
-        }
-      }, [onClusterReady]);
-
-      const ClusterGroupAny = ClusterGroup as any;
-      return <ClusterGroupAny ref={clusterRef} {...props}>{children}</ClusterGroupAny>;
-    };
-  },
-  { ssr: false }
-);
 
 // CartoDB Positron - Minimalist light style
 const TILE_LAYER_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
@@ -73,44 +28,8 @@ export default function LeafletEngine({
   className
 }: TripMapProps) {
   const [L, setL] = useState<any>(null);
-  const [mapInstance, setMapInstance] = useState<any>(null);
-  const [clusteredMarkers, setClusteredMarkers] = useState<Map<string, any>>(new Map());
-  const [clusterGroupReady, setClusterGroupReady] = useState(false);
-  const clusterGroupRef = useRef<any>(null);
-  const markerDataMap = useRef<Map<string, any>>(new Map()); // Store marker data by Leaflet ID
-  const markersRef = useRef<Map<string, any>>(new Map()); // Store Leaflet Marker instances by our ID
-
-  // Handle external selection (e.g. from timeline)
-  useEffect(() => {
-    if (mapInstance && selectedMarkerId && clusterGroupRef.current) {
-      console.log('📍 External selection detected:', selectedMarkerId);
-      
-      // Find the marker in our ref
-      const marker = markersRef.current.get(selectedMarkerId);
-      
-      if (marker) {
-        // 1. Find if marker is currently inside a cluster
-        const visibleParent = clusterGroupRef.current.getVisibleParent(marker);
-        
-        if (visibleParent && visibleParent !== marker) {
-          // Marker is clustered, zoom into the cluster first
-          console.log('📍 Marker is clustered, zooming in...');
-          clusterGroupRef.current.zoomToShowLayer(marker, () => {
-            // After zooming, the marker should be visible
-            setTimeout(() => {
-              mapInstance.panTo(marker.getLatLng());
-              marker.openPopup();
-            }, 100);
-          });
-        } else {
-          // Marker is directly visible
-          console.log('📍 Marker is visible, panning and opening popup');
-          mapInstance.panTo(marker.getLatLng());
-          marker.openPopup();
-        }
-      }
-    }
-  }, [selectedMarkerId, mapInstance, clusterGroupReady]);
+  const [map, setMap] = useState<any>(null);
+  const markerRefs = useRef<Map<string, any>>(new Map());
 
   useEffect(() => {
     // Import Leaflet directly for its L object (for icon creation)
@@ -119,367 +38,24 @@ export default function LeafletEngine({
     });
   }, []);
 
-  // Handle map resize when container changes
+  // Handle external selection (pan to and open popup)
   useEffect(() => {
-    if (mapInstance) {
-      setTimeout(() => {
-        mapInstance.invalidateSize();
-      }, 100);
-    }
-  }, [mapInstance]);
-
-  // Handle cluster group ready
-  const handleClusterReady = useCallback((clusterGroup: any) => {
-    console.log('📍 Cluster group ready callback received');
-    console.log('📍 Cluster group:', clusterGroup);
-    console.log('📍 Cluster group type:', typeof clusterGroup);
-    console.log('📍 Cluster group constructor:', clusterGroup?.constructor?.name);
-    console.log('📍 Cluster group methods:', Object.keys(clusterGroup));
-    console.log('📍 Cluster group prototype methods:', Object.keys(Object.getPrototypeOf(clusterGroup)));
-
-    clusterGroupRef.current = clusterGroup;
-    setClusterGroupReady(true);
-
-    // Check if markers are actually clustered
-    setTimeout(() => {
-      if (clusterGroupRef.current) {
-        console.log('📍 Checking cluster status after delay...');
-        const clusters = clusterGroupRef.current.getLayers();
-        console.log('📍 Total layers in cluster group:', clusters.length);
-
-        // Check if any are clusters
-        let clusterCount = 0;
-        clusters.forEach((layer: any) => {
-          if (layer.getAllChildMarkers && typeof layer.getAllChildMarkers === 'function') {
-            clusterCount++;
-            const childMarkers = layer.getAllChildMarkers();
-            console.log(`📍 Found cluster with ${childMarkers.length} markers`);
-          }
-        });
-
-        console.log('📍 Total clusters found:', clusterCount);
-        console.log('📍 Total individual markers:', clusters.length - clusterCount);
+    if (map && selectedMarkerId) {
+      const marker = markerRefs.current.get(selectedMarkerId);
+      if (marker) {
+        map.panTo(marker.getLatLng());
+        marker.openPopup();
       }
-    }, 1000);
-
-    if (L) {
-      console.log('📍 Attaching cluster click event handlers');
-
-      const handleClusterClick = (e: any) => {
-        try {
-          console.log('📍 Cluster click event fired');
-          console.log('📍 Event object:', e);
-          console.log('📍 Event type:', e.type);
-          console.log('📍 Event layer:', e.layer);
-          console.log('📍 Event source:', e.source);
-          console.log('📍 Event target:', e.target);
-          console.log('📍 Event latlng:', e.latlng);
-
-          // Check if this is a cluster event by multiple methods
-          const isClusterEvent = e.layer && typeof e.layer.getAllChildMarkers === 'function';
-          const isClusterGroupEvent = e.source && typeof e.source.getAllChildMarkers === 'function';
-          const isTargetCluster = e.target && typeof e.target.getAllChildMarkers === 'function';
-
-          console.log('📍 Cluster detection:', {
-            isClusterEvent,
-            isClusterGroupEvent,
-            isTargetCluster,
-            layerType: e.layer?.constructor?.name,
-            sourceType: e.source?.constructor?.name,
-            targetType: e.target?.constructor?.name
-          });
-
-          // Get the cluster object from whichever source has it
-          let cluster = null;
-          if (isClusterEvent) {
-            cluster = e.layer;
-          } else if (isClusterGroupEvent) {
-            cluster = e.source;
-          } else if (isTargetCluster) {
-            cluster = e.target;
-          }
-
-          // Additional check: if event type is 'clusterclick', it should be a cluster
-          if (!cluster && e.type === 'clusterclick') {
-            console.log('📍 Event type is clusterclick, treating as cluster event');
-            // Try to get cluster from different sources
-            if (e.propagatedFrom && typeof e.propagatedFrom.getAllChildMarkers === 'function') {
-              cluster = e.propagatedFrom;
-            }
-          }
-
-          if (cluster) {
-            console.log('📍 This is a cluster event');
-            const childMarkers = cluster.getAllChildMarkers();
-            console.log('📍 Cluster clicked:', childMarkers.length, 'markers');
-            console.log('📍 Child markers array:', childMarkers);
-            console.log('📍 Child markers length:', childMarkers.length);
-            console.log('📍 Condition check:', childMarkers.length > 1);
-
-            if (childMarkers.length > 1) {
-              console.log('📍 Processing cluster with multiple markers');
-
-              // Get marker data from child markers using position matching
-              const clusterMarkersData = childMarkers.map((childMarker: any) => {
-                console.log('📍 Child marker details:', {
-                  marker: childMarker,
-                  leafletId: childMarker._leaflet_id,
-                  latlng: childMarker._latlng,
-                  options: childMarker.options,
-                  hasOptions: !!childMarker.options,
-                  optionKeys: childMarker.options ? Object.keys(childMarker.options) : [],
-                  optionValues: childMarker.options
-                });
-
-                // Try to match by position since options are undefined
-                const childLat = childMarker._latlng?.lat;
-                const childLng = childMarker._latlng?.lng;
-
-                console.log('📍 Looking for marker at position:', { lat: childLat, lng: childLng });
-
-                // Find marker by position (with some tolerance for floating point)
-                const markerData = markers.find(m => {
-                  const latDiff = Math.abs(m.lat - childLat);
-                  const lngDiff = Math.abs(m.lng - childLng);
-                  const isMatch = latDiff < 0.0001 && lngDiff < 0.0001;
-                  console.log('📍 Comparing with marker:', {
-                    markerId: m.id,
-                    markerLat: m.lat,
-                    markerLng: m.lng,
-                    latDiff,
-                    lngDiff,
-                    isMatch
-                  });
-                  return isMatch;
-                });
-
-                console.log('📍 Child marker lookup:', {
-                  position: { lat: childLat, lng: childLng },
-                  foundByPosition: !!markerData,
-                  markerId: markerData?.id,
-                  tripName: markerData?.tripName
-                });
-
-                return markerData;
-              }).filter(Boolean);
-
-              console.log('📍 Cluster markers data:', clusterMarkersData);
-
-              if (clusterMarkersData.length > 0) {
-                // Debug: Check what's in the marker data
-                clusterMarkersData.forEach((markerData: any, index: number) => {
-                  console.log(`📍 Marker ${index} data:`, {
-                    id: markerData.id,
-                    tripName: markerData.tripName,
-                    placeName: markerData.placeName,
-                    photoCount: markerData.photoCount,
-                    hasPhotos: !!markerData.photos,
-                    photosLength: markerData.photos?.length
-                  });
-                });
-
-                // Check if all markers are from the same trip
-                const uniqueTripIds = new Set(clusterMarkersData.map((m: any) => m.id));
-                const isSingleTrip = uniqueTripIds.size === 1;
-
-                console.log('📍 Cluster analysis:', {
-                  totalMarkers: clusterMarkersData.length,
-                  uniqueTrips: uniqueTripIds.size,
-                  isSingleTrip,
-                  tripIds: Array.from(uniqueTripIds)
-                });
-
-                // Get location name from the matched marker data instead of child marker options
-                const locationName = getLocationNameFromCluster(clusterMarkersData);
-                console.log('📍 Location name:', locationName);
-
-                // If all markers are from the same trip, show photo grid instead of trip list
-                if (isSingleTrip) {
-                  console.log('📍 Single trip cluster - showing photo grid');
-                  const singleTripData = clusterMarkersData[0];
-
-                  // Create popup with photo grid
-                  const popup = L.popup({
-                    className: 'travel-popup',
-                    autoClose: false,
-                    closeOnClick: false,
-                    closeButton: true,
-                    minWidth: 280,
-                    maxWidth: 320,
-                    keepInView: true
-                  });
-
-                  // Add popup lifecycle debugging
-                  popup.on('add', () => {
-                    console.log('📍 Single trip popup added to map');
-                  });
-
-                  popup.on('remove', () => {
-                    console.log('📍 Single trip popup removed from map');
-                  });
-
-                  popup.on('close', () => {
-                    console.log('📍 Single trip popup closed');
-                  });
-
-                  // Create popup content
-                  const popupContent = document.createElement('div');
-                  popupContent.innerHTML = `
-                    <div id="single-trip-popup-${cluster._leaflet_id}"></div>
-                  `;
-
-                  console.log('📍 Single trip popup content element created:', popupContent);
-                  console.log('📍 Setting single trip popup content and opening...');
-
-                  popup.setLatLng(e.latlng).setContent(popupContent).openOn(mapInstance);
-
-                  console.log('📍 Single trip popup opened on map');
-
-                  // Check if popup is actually visible
-                  setTimeout(() => {
-                    const popupElement = document.querySelector('.leaflet-popup');
-                    console.log('📍 Popup element in DOM:', !!popupElement);
-                    if (popupElement) {
-                      console.log('📍 Popup element classes:', popupElement.className);
-                      console.log('📍 Popup element styles:', window.getComputedStyle(popupElement).display);
-                    }
-
-                    const container = document.getElementById(`single-trip-popup-${cluster._leaflet_id}`);
-                    console.log('📍 Single trip popup container:', container);
-                    if (container) {
-                      console.log('📍 Rendering PhotoGridPopup into popup container');
-                      const root = ReactDOM.createRoot(container);
-                      root.render(
-                        <PhotoGridPopup
-                          marker={singleTripData}
-                          onSeeDetails={showSeeDetails ? () => {
-                            onMarkerClick?.(singleTripData.id);
-                            popup.close();
-                          } : undefined}
-                        />
-                      );
-                      console.log('📍 PhotoGridPopup rendered');
-                    } else {
-                      console.error('❌ Single trip popup container not found');
-                    }
-                  }, 10);
-
-                } else {
-                  // Multiple trips - show trip list
-                  console.log('📍 Multiple trips cluster - showing trip list');
-
-                // Create popup with clustered trips
-                const popup = L.popup({
-                  className: 'travel-popup',
-                  autoClose: false,
-                  closeOnClick: false,
-                  closeButton: true,
-                  minWidth: 320,
-                  maxWidth: 380,
-                  keepInView: true
-                });
-
-                console.log('📍 Popup created:', popup);
-
-                // Add popup lifecycle debugging
-                popup.on('add', () => {
-                  console.log('📍 Cluster popup added to map');
-                });
-
-                popup.on('remove', () => {
-                  console.log('📍 Cluster popup removed from map');
-                });
-
-                popup.on('close', () => {
-                  console.log('📍 Cluster popup closed');
-                });
-
-                // Create popup content
-                const popupContent = document.createElement('div');
-                popupContent.innerHTML = `
-                  <div id="clustered-trips-popup-${cluster._leaflet_id}"></div>
-                `;
-
-                console.log('📍 Popup content element created:', popupContent);
-                console.log('📍 Setting popup content and opening...');
-
-                popup.setLatLng(e.latlng).setContent(popupContent).openOn(mapInstance);
-
-                console.log('📍 Popup opened on map');
-                console.log('📍 Popup opened:', {
-                  locationName,
-                  markersCount: clusterMarkersData.length,
-                  popupId: cluster._leaflet_id,
-                  latlng: e.latlng
-                });
-
-                // Check if popup is actually visible
-                setTimeout(() => {
-                  const popupElement = document.querySelector('.leaflet-popup');
-                  console.log('📍 Popup element in DOM:', !!popupElement);
-                  if (popupElement) {
-                    console.log('📍 Popup element classes:', popupElement.className);
-                    console.log('📍 Popup element styles:', window.getComputedStyle(popupElement).display);
-                  }
-
-                  const container = document.getElementById(`clustered-trips-popup-${cluster._leaflet_id}`);
-                  console.log('📍 Cluster popup container:', container);
-                  if (container) {
-                    console.log('📍 Rendering React component into popup container');
-                    const root = ReactDOM.createRoot(container);
-                    root.render(
-                      <ClusteredTripsPopup
-                        markers={clusterMarkersData}
-                        locationName={locationName}
-                        onTripClick={(tripId) => {
-                          console.log('📍 Cluster trip clicked:', tripId);
-                          onMarkerClick?.(tripId);
-                          popup.close();
-                        }}
-                      />
-                    );
-                    console.log('📍 React component rendered');
-                  } else {
-                    console.error('❌ Cluster popup container not found');
-                    console.log('📍 Looking for container with ID:', `clustered-trips-popup-${cluster._leaflet_id}`);
-                    console.log('📍 All divs with clustered-trips-popup:', document.querySelectorAll('[id^="clustered-trips-popup-"]'));
-                  }
-                }, 10);
-                }
-              } else {
-                console.log('❌ No cluster markers data found');
-              }
-            } else {
-              console.log('📍 Cluster has only 1 marker, treating as individual');
-            }
-          } else {
-            console.log('📍 This is not a cluster event - ignoring');
-          }
-        } catch (error) {
-          console.error('❌ Error in cluster click handler:', error);
-          console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack');
-        }
-      };
-
-      // Try different event names
-      const eventNames = ['clusterclick', 'click', 'mouseover', 'mousedown', 'mouseup'];
-      eventNames.forEach(eventName => {
-        clusterGroup.on(eventName, (e: any) => {
-          console.log(`📍 Cluster ${eventName} event fired`, e);
-        });
-      });
-
-      // Attach the main handler
-      clusterGroup.on('clusterclick', handleClusterClick);
-      clusterGroup.on('click', handleClusterClick);
-
-      console.log('📍 Event handlers attached to cluster group');
     }
-  }, [L, mapInstance, markers, onMarkerClick]);
+  }, [selectedMarkerId, map]);
 
-  if (!L) return <div className={`${className} bg-stone-50 rounded-xl`} />;
+  if (!L) return (
+    <div className={`${className} bg-stone-50 rounded-xl flex items-center justify-center min-h-[400px]`}>
+      <div className="text-stone-400 font-medium animate-pulse">Loading Map...</div>
+    </div>
+  );
 
-  // Create a custom travel-themed marker icon
+  // Create a custom marker icon
   const createMarkerIcon = (placeName?: string) => {
     const truncatedName = truncatePlaceName(placeName || '', 25);
     return L.divIcon({
@@ -500,58 +76,14 @@ export default function LeafletEngine({
     });
   };
 
-  // Get location name from cluster markers
-  const getLocationNameFromCluster = (clusterMarkers: any[]): string => {
-    console.log('📍 getLocationNameFromCluster called with:', clusterMarkers.length, 'markers');
-
-    if (clusterMarkers.length === 0) return 'Unknown Location';
-
-    // Try to get a common location name from the markers
-    const placeNames = clusterMarkers
-      .map(m => {
-        console.log('📍 Processing marker for place name:', {
-          hasPlaceName: !!m.placeName,
-          placeName: m.placeName,
-          markerData: m
-        });
-        return m.placeName;
-      })
-      .filter(Boolean);
-
-    console.log('📍 Extracted place names:', placeNames);
-
-    if (placeNames.length > 0) {
-      // Return the most common place name
-      const nameCounts = placeNames.reduce<Record<string, number>>((acc, name) => {
-        acc[name] = (acc[name] || 0) + 1;
-        return acc;
-      }, {});
-
-      console.log('📍 Place name counts:', nameCounts);
-
-      const mostCommon = Object.entries<number>(nameCounts).sort((a, b) => b[1] - a[1])[0];
-      const result = mostCommon ? mostCommon[0] : 'Multiple Locations';
-      console.log('📍 Most common place name:', result);
-      return result;
-    }
-
-    // Fallback to generic location name
-    return 'Trip Area';
-  };
-
   return (
-    <div className={`${className} overflow-hidden rounded-xl border-2 border-amber-200 shadow-lg relative z-0 bg-gradient-to-br from-amber-50 to-orange-50`}>
+    <div className={`${className} overflow-hidden rounded-xl border-2 border-stone-200 shadow-sm relative z-0`}>
       <MapContainer
         center={[center.lat, center.lng]}
         zoom={zoom}
         zoomControl={false}
         className="w-full h-full"
-        ref={(map) => {
-          if (map && !mapInstance) {
-            setMapInstance(map);
-            console.log('🗺️ Map instance created');
-          }
-        }}
+        ref={setMap}
       >
         <TileLayer
           url={TILE_LAYER_URL}
@@ -559,116 +91,30 @@ export default function LeafletEngine({
         />
         <ZoomControl position="topright" />
 
-        <MarkerClusterGroup
-          onClusterReady={handleClusterReady}
-          showCoverageOnHover={false}
-          zoomToBoundsOnClick={false}
-          spiderfyOnMaxZoom={true}
-          maxClusterRadius={80}
-          disableClusteringAtZoom={15}
-          iconCreateFunction={(cluster: any) => {
-            const childMarkers = cluster.getAllChildMarkers();
-            const count = childMarkers.length;
-
-            // Get location name from matched marker data instead of child marker options
-            const clusterMarkersData = childMarkers.map((childMarker: any) => {
-              const childLat = childMarker._latlng?.lat;
-              const childLng = childMarker._latlng?.lng;
-              return markers.find(m => {
-                const latDiff = Math.abs(m.lat - childLat);
-                const lngDiff = Math.abs(m.lng - childLng);
-                return latDiff < 0.0001 && lngDiff < 0.0001;
-              });
-            }).filter(Boolean);
-
-            const locationName = getLocationNameFromCluster(clusterMarkersData);
-
-            // Create cluster icon
-            return L.divIcon({
-              className: 'custom-div-icon',
-              html: `
-                <div class="flex flex-col items-center travel-marker">
-                  <div class="relative">
-                    <svg class="w-10 h-10 drop-shadow-lg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#DC2626" stroke="#991B1B" stroke-width="1"/>
-                      <circle cx="12" cy="9" r="1.5" fill="#FEF2F2"/>
-                    </svg>
-                    <div class="absolute -top-1 -right-1 bg-amber-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center border-2 border-white">
-                      ${count}
-                    </div>
-                  </div>
-                  <div class="mt-1 px-3 py-1.5 bg-red-50/90 backdrop-blur-sm rounded-lg shadow-md border border-red-200 text-xs font-semibold text-red-900 whitespace-nowrap max-w-[150px] overflow-hidden text-ellipsis">
-                    ${locationName}
-                  </div>
-                </div>
-              `,
-              iconSize: [40, 40],
-              iconAnchor: [20, 40]
-            });
-          }}
-        >
-          {markers.map((marker) => (
-            <Marker
-              key={marker.id}
-              position={[marker.lat, marker.lng]}
-              icon={createMarkerIcon(marker.placeName)}
-              // Store marker data in options for cluster retrieval
-              options={{
-                id: marker.id,
-                tripName: marker.tripName,
-                placeName: marker.placeName,
-                photoCount: marker.photoCount,
-                photos: marker.photos
-              }}
-              ref={(markerRef: LeafletMarker | null) => {
-                if (markerRef) {
-                  // Store marker instance by our ID
-                  markersRef.current.set(marker.id, markerRef);
-
-                  // Store marker data by Leaflet ID when marker is created
-                  const leafletId = (markerRef as any)._leaflet_id;
-                  if (leafletId) {
-                    markerDataMap.current.set(leafletId, marker);
-                    console.log('📍 Stored marker data for Leaflet ID:', leafletId, 'Marker ID:', marker.id);
-                  }
-                }
-              }}
-              eventHandlers={{
-                click: (e: any) => {
-                  console.log('📍 Individual marker clicked:', marker.id, marker.tripName);
-
-                  // Open popup
-                  e.target.openPopup();
-
-                  // Trigger sidebar selection/scroll
-                  onMarkerClick?.(marker.id);
-                },
-                popupopen: (e: any) => {
-                  console.log('📍 Popup opened for:', marker.id);
-                  e.target.options.autoClose = false;
-                },
-                popupclose: (e: any) => {
-                  console.log('📍 Popup closed for:', marker.id);
-                }
-              }}
+        {markers.map((marker) => (
+          <Marker
+            key={marker.id}
+            position={[marker.lat, marker.lng]}
+            icon={createMarkerIcon(marker.placeName)}
+            ref={(ref: any) => {
+              if (ref) markerRefs.current.set(marker.id, ref);
+            }}
+            eventHandlers={{
+              click: () => onMarkerClick?.(marker.id),
+            }}
+          >
+            <Popup
+              className="travel-popup"
+              autoClose={false}
+              closeOnClick={false}
             >
-              <Popup
-                className="travel-popup"
-                autoClose={false}
-                closeOnClick={false}
-                closeButton={true}
-                minWidth={280}
-                maxWidth={320}
-                keepInView={true}
-              >
-                <PhotoGridPopup
-                  marker={marker}
-                  onSeeDetails={showSeeDetails ? () => onMarkerClick?.(marker.id) : undefined}
-                />
-              </Popup>
-            </Marker>
-          ))}
-        </MarkerClusterGroup>
+              <PhotoGridPopup
+                marker={marker}
+                onSeeDetails={showSeeDetails ? () => onMarkerClick?.(marker.id) : undefined}
+              />
+            </Popup>
+          </Marker>
+        ))}
       </MapContainer>
     </div>
   );
