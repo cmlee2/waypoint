@@ -117,7 +117,8 @@ export async function GET(request: NextRequest) {
 
     // Verify that all required scopes were granted
     const requiredScopes = [
-      'https://www.googleapis.com/auth/photoslibrary.readonly'
+      'https://www.googleapis.com/auth/photoslibrary.readonly',
+      'https://www.googleapis.com/auth/photoslibrary'
     ];
 
     const grantedScopes = tokenData.scope ? tokenData.scope.split(' ') : [];

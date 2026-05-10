@@ -33,7 +33,11 @@ export default function GooglePhotosPicker({
 
   const [debugInfo, setDebugInfo] = useState<any>(null);
 
-  const { client, rateLimiter } = createGooglePhotosClient(accessToken);
+  // Use useMemo to ensure the client is always using the LATEST accessToken
+  const { client, rateLimiter } = React.useMemo(() => 
+    createGooglePhotosClient(accessToken), 
+    [accessToken]
+  );
 
   // Load photos when modal opens
   useEffect(() => {

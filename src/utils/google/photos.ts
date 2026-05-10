@@ -68,9 +68,10 @@ export class GooglePhotosClient {
         return false;
       }
 
-      // Check if the token has the required readonly scope
+      // Check if the token has at least one required scope
       const requiredScopes = [
-        'https://www.googleapis.com/auth/photoslibrary.readonly'
+        'https://www.googleapis.com/auth/photoslibrary.readonly',
+        'https://www.googleapis.com/auth/photoslibrary'
       ];
 
       const tokenScopes = data.scope || '';
@@ -83,16 +84,18 @@ export class GooglePhotosClient {
         return false;
       }
 
-      // Check that at least the readonly scope is present
+      // Check that at least one relevant scope is present
       const hasReadonly = tokenScopes.includes('https://www.googleapis.com/auth/photoslibrary.readonly');
+      const hasFull = tokenScopes.includes('https://www.googleapis.com/auth/photoslibrary');
       
       console.log('✅ Scope check result:', {
         hasReadonly,
+        hasFull,
         expiresIn
       });
 
-      if (!hasReadonly) {
-        console.error('❌ Token missing required Photos readonly scope');
+      if (!hasReadonly && !hasFull) {
+        console.error('❌ Token missing required Photos scopes');
         return false;
       }
 

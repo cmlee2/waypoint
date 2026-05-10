@@ -6,7 +6,7 @@ import { auth } from '@clerk/nextjs/server';
  * This endpoint initiates the OAuth flow and handles the callback
  */
 
-const GOOGLE_PHOTOS_SCOPE = 'https://www.googleapis.com/auth/photoslibrary.readonly';
+const GOOGLE_PHOTOS_SCOPE = 'https://www.googleapis.com/auth/photoslibrary.readonly https://www.googleapis.com/auth/photoslibrary';
 const REDIRECT_URI = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/google/oauth/callback`;
 
 export async function GET(request: NextRequest) {
