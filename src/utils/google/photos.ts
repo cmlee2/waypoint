@@ -116,14 +116,8 @@ export class GooglePhotosClient {
   async listPhotos(pageSize: number = 50, pageToken?: string): Promise<GooglePhotosListResponse> {
     const url = new URL('https://photoslibrary.googleapis.com/v1/mediaItems:search');
     
-    // Some project configurations require an API Key even with OAuth
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
-    if (apiKey) {
-      url.searchParams.append('key', apiKey);
-    }
-    
     console.log('Google Photos API Request (POST):', {
-      url: url.toString().replace(apiKey || '', '***'),
+      url: url.toString(),
       hasAccessToken: !!this.accessToken
     });
 
