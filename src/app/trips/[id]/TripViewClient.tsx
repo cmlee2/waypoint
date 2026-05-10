@@ -62,23 +62,13 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
 
   // Centering
   const centeringResult = calculateSmartCentering(markers, {
-    minZoom: 2,
+    minZoom: 5,
     maxZoom: 15,
     paddingFactor: 0.1,
   });
 
-  const handleShare = async () => {
-    try {
-      await navigator.share({
-        title: trip.name,
-        text: trip.description,
-        url: window.location.href,
-      });
-    } catch (err) {
-      navigator.clipboard.writeText(window.location.href);
-      alert('Link copied to clipboard!');
-    }
-  };
+  const initialCenter = markers.length > 0 ? centeringResult.center : { lat: 0, lng: 0 };
+  const initialZoom = markers.length > 0 ? centeringResult.zoom : 2;
 
   return (
     <div className="flex-1 flex flex-col md:flex-row h-[calc(100vh-4rem)] overflow-hidden">
@@ -144,12 +134,10 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
       <main className="flex-1 relative bg-stone-100 h-full">
         <MapDisplay
           provider="leaflet"
-          center={centeringResult.center}
-          zoom={centeringResult.zoom}
+          center={initialCenter}
+          zoom={initialZoom}
           markers={markers}
-          selectedMarkerId={selectedPhotoId}
           onMarkerClick={setSelectedPhotoId}
-          showSeeDetails={false}
           className="w-full h-full"
         />
       </main>
