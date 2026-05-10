@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
-import { X, Loader2, Check, Image as ImageIcon, RefreshCw, AlertCircle } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { AlertCircle, Check, ExternalLink, Image as ImageIcon, Loader2, RefreshCw, X } from 'lucide-react';
 import {
   GooglePhoto,
   GooglePhotosError,
-  type GooglePhotosValidationResult,
+  type GooglePhotosPickedMediaItem,
+  type GooglePhotosPickerSession,
   createGooglePhotosClient,
 } from '@/utils/google/photos';
 import {
@@ -14,8 +15,7 @@ import {
   getScopeTroubleshootingSteps,
 } from '@/utils/google/scopes';
 
-type GooglePhotosClientType = ReturnType<typeof createGooglePhotosClient>['client'];
-type GooglePhotosErrorKind = 'missing_scope' | 'api_denied' | 'token_invalid' | 'network_error' | 'unknown';
+type GooglePhotosErrorKind = 'missing_scope' | 'api_denied' | 'network_error' | 'picker_timeout' | 'unknown';
 
 interface GooglePhotosPickerProps {
   isOpen: boolean;
@@ -26,6 +26,12 @@ interface GooglePhotosPickerProps {
   maxPhotos?: number;
 }
 
+function parseDurationSeconds(duration?: string): number {
+  if (!duration) return 3;
+  const parsed = Number.parseFloat(duration.replace('s', ''));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 3;
+}
+
 export default function GooglePhotosPicker({
   isOpen,
   onClose,
@@ -34,31 +40,46 @@ export default function GooglePhotosPicker({
   accessToken,
   maxPhotos = 15,
 }: GooglePhotosPickerProps) {
+  const [session, setSession] = useState<GooglePhotosPickerSession | null>(null);
   const [photos, setPhotos] = useState<GooglePhoto[]>([]);
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set());
-  const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [nextPageToken, setNextPageToken] = useState<string | undefined>();
+  const [isCreatingSession, setIsCreatingSession] = useState(false);
+  const [isPolling, setIsPolling] = useState(false);
+  const [isOpeningPicker, setIsOpeningPicker] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorKind, setErrorKind] = useState<GooglePhotosErrorKind | null>(null);
   const [showTroubleshooting, setShowTroubleshooting] = useState(false);
-  const hasAttemptedTokenRetryRef = useRef(false);
-
   const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [sessionMessage, setSessionMessage] = useState<string>('Preparing Google Photos Picker...');
+  const [hasLoadedItems, setHasLoadedItems] = useState(false);
 
-  // Use useMemo to ensure the client is always using the LATEST accessToken
-  const { client, rateLimiter } = React.useMemo(() => 
-    createGooglePhotosClient(accessToken), 
-    [accessToken]
-  );
+  const client = useMemo(() => createGooglePhotosClient(accessToken).client, [accessToken]);
+  const pollTimerRef = useRef<number | null>(null);
+  const createRetryRef = useRef(false);
+  const sessionIdRef = useRef<string | null>(null);
 
-  // Load photos when modal opens
-  useEffect(() => {
-    if (!isOpen || !accessToken) return;
+  const resetState = () => {
+    setSession(null);
+    setPhotos([]);
+    setSelectedPhotos(new Set());
+    setError(null);
+    setErrorKind(null);
+    setShowTroubleshooting(false);
+    setDebugInfo(null);
+    setSessionMessage('Preparing Google Photos Picker...');
+    setHasLoadedItems(false);
+    setIsCreatingSession(false);
+    setIsPolling(false);
+    setIsOpeningPicker(false);
+    sessionIdRef.current = null;
+  };
 
-    hasAttemptedTokenRetryRef.current = false;
-    loadPhotos();
-  }, [isOpen, accessToken]);
+  const clearPollTimer = () => {
+    if (pollTimerRef.current !== null) {
+      window.clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  };
 
   const updateDebugInfo = async (token: string) => {
     const response = await fetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${token}`);
@@ -68,184 +89,198 @@ export default function GooglePhotosPicker({
       expiresIn: data.expires_in,
       email: data.email,
     });
-    return data;
-  };
-
-  const resetErrorState = () => {
-    setError(null);
-    setErrorKind(null);
-    setShowTroubleshooting(false);
   };
 
   const setLoadError = (kind: GooglePhotosErrorKind, message: string) => {
     setError(message);
     setErrorKind(kind);
-    setShowTroubleshooting(kind === 'missing_scope');
+    setShowTroubleshooting(kind === 'missing_scope' || kind === 'api_denied');
   };
 
-  const normalizeValidationErrorKind = (
-    reason: GooglePhotosValidationResult['reason']
-  ): GooglePhotosErrorKind => {
-    if (reason === 'missing_scope') return 'missing_scope';
-    if (reason === 'token_invalid' || reason === 'expired') return 'token_invalid';
-    return 'network_error';
+  const convertPickedItems = (items: GooglePhotosPickedMediaItem[]) =>
+    items.map(item => client.convertPickedMediaItemToGooglePhoto(item));
+
+  const loadAllPickedMediaItems = async (sessionId: string) => {
+    const collected: GooglePhoto[] = [];
+    let pageToken: string | undefined;
+
+    while (true) {
+      const response = await fetch(
+        `/api/google/picker/session/${encodeURIComponent(sessionId)}/media-items?${new URLSearchParams({
+          pageSize: '100',
+          ...(pageToken ? { pageToken } : {}),
+        }).toString()}`
+      );
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload?.error || 'Failed to load picked media items');
+      }
+
+      const payload = await response.json();
+      const pageItems = Array.isArray(payload.mediaItems) ? payload.mediaItems : [];
+      collected.push(...convertPickedItems(pageItems));
+      pageToken = payload.nextPageToken;
+
+      if (!pageToken) break;
+    }
+
+    return collected;
   };
 
-  const loadPhotos = async (
-    pageToken?: string,
-    options?: {
-      accessTokenOverride?: string;
-      clientOverride?: GooglePhotosClientType;
-      allowRefreshRetry?: boolean;
-    }
-  ) => {
-    const activeToken = options?.accessTokenOverride ?? accessToken;
-    const activeClient = options?.clientOverride ?? client;
-    const allowRefreshRetry = options?.allowRefreshRetry ?? true;
-
-    if (pageToken) {
-      setIsLoadingMore(true);
-    } else {
-      setIsLoading(true);
-      resetErrorState();
-    }
-
+  const pollSession = async (sessionId: string) => {
     try {
-      setIsLoading(true);
-      resetErrorState();
+      const response = await fetch(`/api/google/picker/session/${encodeURIComponent(sessionId)}`);
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload?.error || 'Failed to poll picker session');
+      }
 
-      // 1. Get initial debug info
-      await updateDebugInfo(activeToken);
+      const payload = await response.json();
+      const currentSession = payload as GooglePhotosPickerSession;
+      setSession(currentSession);
+      sessionIdRef.current = currentSession.id;
 
-      console.log('🔑 Validating Google Photos token...');
-      const validation = await activeClient.validateToken();
-
-      if (!validation.valid) {
-        const shouldRetryRefresh =
-          allowRefreshRetry &&
-          onTokenExpired &&
-          (validation.reason === 'token_invalid' || validation.reason === 'expired');
-
-        if (shouldRetryRefresh) {
-          console.log('🔄 Token invalid or expired, attempting forced refresh via callback...');
-          const newToken = await onTokenExpired(true);
-          if (newToken) {
-            const { client: refreshedClient } = createGooglePhotosClient(newToken);
-            const refreshedValidation = await refreshedClient.validateToken();
-
-            if (refreshedValidation.valid) {
-              await updateDebugInfo(newToken);
-              return loadPhotos(pageToken, {
-                accessTokenOverride: newToken,
-                clientOverride: refreshedClient,
-                allowRefreshRetry: false,
-              });
-            }
-
-            const nextKind = normalizeValidationErrorKind(refreshedValidation.reason);
-            const nextMessage =
-              nextKind === 'missing_scope'
-                ? formatScopeErrorMessage([GOOGLE_PHOTOS_SCOPES.READONLY])
-                : 'Authentication failed. Please re-authorize Google Photos and try again.';
-
-            setLoadError(nextKind, nextMessage);
-            return;
-          }
-        }
-
-        if (validation.reason === 'missing_scope') {
-          setLoadError('missing_scope', formatScopeErrorMessage([GOOGLE_PHOTOS_SCOPES.READONLY]));
-          return;
-        }
-
-        setLoadError(
-          normalizeValidationErrorKind(validation.reason),
-          'Authentication failed. Please re-authorize Google Photos and try again.'
-        );
+      if (currentSession.mediaItemsSet) {
+        clearPollTimer();
+        setIsPolling(false);
+        const pickedPhotos = await loadAllPickedMediaItems(sessionId);
+        setPhotos(pickedPhotos);
+        setSelectedPhotos(new Set(pickedPhotos.map(photo => photo.id)));
+        setHasLoadedItems(true);
+        setSessionMessage(`Selected ${pickedPhotos.length} photo${pickedPhotos.length === 1 ? '' : 's'} from Google Photos.`);
         return;
       }
 
-      // 3. Make the actual API call using the ACTIVE client
-      console.log('✅ Token valid, listing photos...');
-      const result = await rateLimiter.execute(() =>
-        activeClient.listPhotos(50, pageToken)
+      const intervalMs = parseDurationSeconds(currentSession.pollingConfig?.pollInterval) * 1000;
+      setSessionMessage(
+        `Waiting for you to finish picking in Google Photos. Polling every ${parseDurationSeconds(currentSession.pollingConfig?.pollInterval)}s.`
       );
-
-      console.log(`📸 Loaded ${result.photos.length} photos`);
-      if (pageToken) {
-        setPhotos(prev => [...prev, ...result.photos]);
-      } else {
-        setPhotos(result.photos);
-      }
-      setNextPageToken(result.nextPageToken);
-
+      pollTimerRef.current = window.setTimeout(() => {
+        void pollSession(sessionId);
+      }, intervalMs);
     } catch (err) {
-      console.error('❌ Failed to load photos:', err);
+      console.error('Failed to poll Google Photos session:', err);
+      clearPollTimer();
+      setIsPolling(false);
+      setLoadError('picker_timeout', err instanceof Error ? err.message : 'Failed to poll Google Photos session');
+    }
+  };
 
-      if (err instanceof GooglePhotosError && err.code === 'api_denied') {
-        if (hasAttemptedTokenRetryRef.current) {
+  const createSession = async () => {
+    if (isCreatingSession) return;
+    setIsCreatingSession(true);
+    setError(null);
+    setErrorKind(null);
+    setShowTroubleshooting(false);
+
+    try {
+      await updateDebugInfo(accessToken);
+
+      const response = await fetch('/api/google/picker/session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ maxItemCount: maxPhotos }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        const message = payload?.details || payload?.error || 'Failed to create Google Photos Picker session';
+        const status = response.status;
+        if (status === 401 || message.toLowerCase().includes('scope')) {
+          if (!createRetryRef.current && onTokenExpired) {
+            createRetryRef.current = true;
+            const refreshedToken = await onTokenExpired(true);
+            if (refreshedToken) {
+              setIsCreatingSession(false);
+              await createSession();
+              return;
+            }
+          }
+
           setLoadError(
-            'api_denied',
-            err.message
+            'missing_scope',
+            formatScopeErrorMessage([GOOGLE_PHOTOS_SCOPES.PICKER_READONLY])
           );
           return;
         }
 
-        hasAttemptedTokenRetryRef.current = true;
-
-        if (allowRefreshRetry && onTokenExpired) {
-          console.log('🔄 API denied with valid scopes, attempting one forced token refresh...');
-          const newToken = await onTokenExpired(true);
-          if (newToken) {
-            const { client: refreshedClient } = createGooglePhotosClient(newToken);
-            const refreshedValidation = await refreshedClient.validateToken();
-
-            if (refreshedValidation.valid) {
-              await updateDebugInfo(newToken);
-              await loadPhotos(pageToken, {
-                accessTokenOverride: newToken,
-                clientOverride: refreshedClient,
-                allowRefreshRetry: false,
-              });
-              return;
-            }
-          }
+        if (status === 403) {
+          setLoadError(
+            'api_denied',
+            'Google Photos Picker denied access. Enable the Picker API in Google Cloud Console and re-authorize with the new Google Photos Picker scope.'
+          );
+          return;
         }
 
-        setLoadError('api_denied', err.message);
-        return;
+        throw new Error(message);
       }
 
-      if (err instanceof GooglePhotosError) {
-        const kind: GooglePhotosErrorKind =
-          err.code === 'api_denied'
-            ? 'api_denied'
-            : err.code === 'token_invalid'
-              ? 'token_invalid'
-              : 'network_error';
-        setLoadError(kind, err.message);
-        return;
+      const createdSession = (await response.json()) as GooglePhotosPickerSession;
+      setSession(createdSession);
+      sessionIdRef.current = createdSession.id;
+      setSessionMessage('Open Google Photos in a new tab, then finish picking photos there.');
+      setIsPolling(true);
+      clearPollTimer();
+      pollTimerRef.current = window.setTimeout(() => {
+        void pollSession(createdSession.id);
+      }, parseDurationSeconds(createdSession.pollingConfig?.pollInterval) * 1000);
+    } catch (err) {
+      console.error('Failed to create Google Photos Picker session:', err);
+      if (err instanceof GooglePhotosError && err.code === 'api_denied') {
+        setLoadError(
+          'api_denied',
+          'Google Photos Picker denied access. Enable the Picker API in Google Cloud Console and re-authorize.'
+        );
+      } else {
+        setLoadError('network_error', err instanceof Error ? err.message : 'Failed to create Google Photos Picker session');
       }
-
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load photos';
-      setLoadError('unknown', errorMessage);
     } finally {
-      setIsLoading(false);
-      setIsLoadingMore(false);
+      setIsCreatingSession(false);
     }
   };
 
+  const openPicker = async () => {
+    if (!session?.pickerUri) return;
+
+    setIsOpeningPicker(true);
+    window.open(`${session.pickerUri.replace(/\/$/, '')}/autoclose`, '_blank', 'noopener,noreferrer');
+    setIsOpeningPicker(false);
+  };
+
+  useEffect(() => {
+    if (!isOpen || !accessToken) return;
+
+    createRetryRef.current = false;
+    resetState();
+    void createSession();
+
+    return () => {
+      clearPollTimer();
+      if (sessionIdRef.current) {
+        void fetch(`/api/google/picker/session/${encodeURIComponent(sessionIdRef.current)}`, {
+          method: 'DELETE',
+        });
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, accessToken]);
+
+  useEffect(() => {
+    return () => clearPollTimer();
+  }, []);
+
   const togglePhotoSelection = (photoId: string) => {
     setSelectedPhotos(prev => {
-      const newSet = new Set(prev);
-
-      if (newSet.has(photoId)) {
-        newSet.delete(photoId);
-      } else if (newSet.size < maxPhotos) {
-        newSet.add(photoId);
+      const next = new Set(prev);
+      if (next.has(photoId)) {
+        next.delete(photoId);
+      } else if (next.size < maxPhotos) {
+        next.add(photoId);
       }
-
-      return newSet;
+      return next;
     });
   };
 
@@ -263,11 +298,10 @@ export default function GooglePhotosPicker({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
       <div className="flex h-full max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-stone-200 p-6">
           <div>
             <h2 className="text-2xl font-bold text-stone-900">Import from Google Photos</h2>
-            <p className="text-sm text-stone-500 mt-1">
+            <p className="mt-1 text-sm text-stone-500">
               Select up to {maxPhotos} photos ({selectedPhotos.size} selected)
             </p>
           </div>
@@ -280,16 +314,15 @@ export default function GooglePhotosPicker({
           </button>
         </div>
 
-        {/* Error Message */}
         {error && (
-          <div className="mx-6 mt-4 rounded-xl bg-red-50 border border-red-200 p-4">
+          <div className="mx-6 mt-4 rounded-xl border border-red-200 bg-red-50 p-4">
             <div className="flex items-start gap-3">
-              <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
+              <AlertCircle size={20} className="mt-0.5 flex-shrink-0 text-red-600" />
               <div className="flex-1">
-                <p className="text-sm text-red-700 font-medium">{error}</p>
+                <p className="text-sm font-medium text-red-700">{error}</p>
                 {errorKind && (
                   <div className="mt-3">
-                    {errorKind === 'missing_scope' && (
+                    {(errorKind === 'missing_scope' || errorKind === 'api_denied') && (
                       <button
                         type="button"
                         onClick={() => {
@@ -297,40 +330,26 @@ export default function GooglePhotosPicker({
                         }}
                         className="text-sm text-red-600 underline hover:text-red-800"
                       >
-                        Re-authorize with Google Photos
+                        Re-authorize with Google Photos Picker
                       </button>
                     )}
                     <button
                       type="button"
                       onClick={() => setShowTroubleshooting(!showTroubleshooting)}
-                      className="text-sm text-red-600 underline hover:text-red-800 ml-4"
+                      className="ml-4 text-sm text-red-600 underline hover:text-red-800"
                     >
                       {showTroubleshooting ? 'Hide troubleshooting steps' : 'Show troubleshooting steps'}
                     </button>
                     {showTroubleshooting && (
-                      <div className="mt-2 text-sm text-red-600 bg-red-100/50 rounded-lg p-3">
-                        {errorKind === 'missing_scope' ? (
-                          <ol className="list-decimal list-inside space-y-1">
-                            {getScopeTroubleshootingSteps().map((step, index) => (
-                              <li key={index}>{step}</li>
-                            ))}
-                          </ol>
-                        ) : (
-                          <div className="space-y-2">
-                            <p>
-                              Google Photos denied the request even though the token appears to have scopes.
-                              This usually means the Photos Library API is disabled, the OAuth consent screen is not fully configured,
-                              or the consent grant is stale.
-                            </p>
-                            <p className="text-xs text-red-500">
-                              The app will no longer label this as a missing-scope problem unless tokeninfo actually reports one.
-                            </p>
-                          </div>
-                        )}
-                        
+                      <div className="mt-2 rounded-lg bg-red-100/50 p-3 text-sm text-red-600">
+                        <ol className="list-decimal list-inside space-y-1">
+                          {getScopeTroubleshootingSteps().map((step, index) => (
+                            <li key={index}>{step}</li>
+                          ))}
+                        </ol>
                         {debugInfo && (
-                          <div className="mt-4 pt-4 border-t border-red-200 text-xs font-mono">
-                            <p className="font-bold uppercase mb-1">Current Token Debug Info:</p>
+                          <div className="mt-4 border-t border-red-200 pt-4 font-mono text-xs">
+                            <p className="mb-1 font-bold uppercase">Current Token Debug Info:</p>
                             <p>Email: {debugInfo.email}</p>
                             <p>Expires In: {debugInfo.expiresIn}s</p>
                             <p className="mt-1">Granted Scopes:</p>
@@ -338,11 +357,8 @@ export default function GooglePhotosPicker({
                               {debugInfo.grantedScopes.map((s: string) => (
                                 <li key={s} className="truncate">{s}</li>
                               ))}
-                              {debugInfo.grantedScopes.length === 0 && <li>NONE (Did you check the box?)</li>}
+                              {debugInfo.grantedScopes.length === 0 && <li>NONE</li>}
                             </ul>
-                            <p className="mt-3 text-red-500">
-                              The error above is the real Google response.
-                            </p>
                           </div>
                         )}
                       </div>
@@ -354,25 +370,59 @@ export default function GooglePhotosPicker({
           </div>
         )}
 
-        {/* Photo Grid */}
         <div className="flex-1 overflow-y-auto p-6">
-          {isLoading ? (
-            <div className="flex items-center justify-center h-full">
+          {!session && (isCreatingSession || isPolling) && (
+            <div className="flex h-full items-center justify-center">
               <div className="text-center">
-                <Loader2 size={32} className="animate-spin text-stone-400 mx-auto mb-2" />
-                <p className="text-sm text-stone-500">Loading your photos...</p>
+                <Loader2 size={32} className="mx-auto mb-2 animate-spin text-stone-400" />
+                <p className="text-sm text-stone-500">{sessionMessage}</p>
               </div>
             </div>
-          ) : photos.length === 0 ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <ImageIcon size={48} className="text-stone-300 mx-auto mb-2" />
-                <p className="text-sm text-stone-500">No photos found</p>
+          )}
+
+          {session && !hasLoadedItems && (
+            <div className="space-y-4 rounded-2xl border border-stone-200 bg-stone-50 p-5">
+              <div className="flex items-start gap-3">
+                <ImageIcon size={24} className="mt-0.5 text-stone-500" />
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-stone-900">Open Google Photos Picker</p>
+                  <p className="text-sm text-stone-600">{sessionMessage}</p>
+                  {session.pickerUri && (
+                    <button
+                      type="button"
+                      onClick={openPicker}
+                      disabled={isOpeningPicker}
+                      className="inline-flex items-center gap-2 rounded-xl bg-stone-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-stone-800 disabled:opacity-50"
+                    >
+                      {isOpeningPicker ? <Loader2 size={16} className="animate-spin" /> : <ExternalLink size={16} />}
+                      Open Google Photos
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {photos.map((photo) => {
+          )}
+
+          {hasLoadedItems && photos.length === 0 && (
+            <div className="flex h-full items-center justify-center">
+              <div className="text-center">
+                <ImageIcon size={48} className="mx-auto mb-2 text-stone-300" />
+                <p className="text-sm text-stone-500">No photos were selected</p>
+                <button
+                  type="button"
+                  onClick={createSession}
+                  className="mt-4 inline-flex items-center gap-2 rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition-colors hover:bg-stone-50"
+                >
+                  <RefreshCw size={16} />
+                  Start a new picker session
+                </button>
+              </div>
+            </div>
+          )}
+
+          {photos.length > 0 && (
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+              {photos.map(photo => {
                 const isSelected = selectedPhotos.has(photo.id);
                 const canSelect = !isSelected && selectedPhotos.size < maxPhotos;
 
@@ -383,59 +433,39 @@ export default function GooglePhotosPicker({
                     onClick={() => togglePhotoSelection(photo.id)}
                     disabled={!canSelect && !isSelected}
                     className={`
-                      relative aspect-square rounded-xl overflow-hidden border-2 transition-all
+                      relative aspect-square overflow-hidden rounded-xl border-2 transition-all
                       ${isSelected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-stone-200'}
-                      ${!canSelect && !isSelected ? 'opacity-50 cursor-not-allowed' : 'hover:border-stone-300'}
+                      ${!canSelect && !isSelected ? 'cursor-not-allowed opacity-50' : 'hover:border-stone-300'}
                     `}
                   >
                     <img
-                      src={client.getPhotoDownloadUrl(photo, 300, 300)}
+                      src={`/api/google/picker/media-file?${new URLSearchParams({
+                        baseUrl: photo.baseUrl,
+                        width: '300',
+                        height: '300',
+                      }).toString()}`}
                       alt={photo.filename}
-                      className="w-full h-full object-cover"
+                      className="h-full w-full object-cover"
                     />
 
-                    {/* Selection Overlay */}
                     {isSelected && (
-                      <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
-                        <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                      <div className="absolute inset-0 flex items-center justify-center bg-blue-500/20">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500">
                           <Check size={16} className="text-white" />
                         </div>
                       </div>
                     )}
 
-                    {/* Filename */}
                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
-                      <p className="text-xs text-white truncate">{photo.filename}</p>
+                      <p className="truncate text-xs text-white">{photo.filename}</p>
                     </div>
                   </button>
                 );
               })}
             </div>
           )}
-
-          {/* Load More Button */}
-          {nextPageToken && !isLoading && photos.length > 0 && (
-            <div className="flex justify-center mt-6">
-              <button
-                type="button"
-                onClick={() => loadPhotos(nextPageToken)}
-                disabled={isLoadingMore}
-                className="rounded-xl border border-stone-300 bg-white px-6 py-2 font-medium text-stone-700 transition-colors hover:bg-stone-50 disabled:opacity-50 flex items-center gap-2"
-              >
-                {isLoadingMore ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    Loading more...
-                  </>
-                ) : (
-                  'Load More Photos'
-                )}
-              </button>
-            </div>
-          )}
         </div>
 
-        {/* Footer */}
         <div className="flex items-center justify-between border-t border-stone-200 p-4">
           <div className="text-sm text-stone-500">
             {remainingSlots > 0 ? (
@@ -445,42 +475,15 @@ export default function GooglePhotosPicker({
             )}
           </div>
           <div className="flex gap-3">
-            {errorKind && (
-              <div className="flex gap-3">
-                {errorKind === 'missing_scope' && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      window.location.href = '/api/google/oauth?action=authorize&returnUrl=/trips/new';
-                    }}
-                    className="rounded-xl border border-red-300 bg-red-50 px-6 py-2 font-medium text-red-700 transition-colors hover:bg-red-100 flex items-center gap-2"
-                  >
-                    <RefreshCw size={16} />
-                    Re-authorize
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await fetch('/api/google/token', { method: 'DELETE' });
-                    window.location.reload();
-                  }}
-                  className="rounded-xl border border-stone-300 bg-white px-6 py-2 font-medium text-stone-600 transition-colors hover:bg-stone-100"
-                >
-                  Clear Session & Logout
-                </button>
-              </div>
-            )}
-            {error && errorKind !== 'missing_scope' && (
-              <button
-                type="button"
-                onClick={() => loadPhotos(undefined, { allowRefreshRetry: true })}
-                className="rounded-xl border border-stone-300 bg-white px-6 py-2 font-medium text-stone-700 transition-colors hover:bg-stone-50 flex items-center gap-2"
-              >
-                <RefreshCw size={16} />
-                Retry with Fresh Token
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={createSession}
+              disabled={isCreatingSession}
+              className="inline-flex items-center gap-2 rounded-xl border border-stone-300 bg-white px-5 py-2 font-medium text-stone-700 transition-colors hover:bg-stone-50 disabled:opacity-50"
+            >
+              {isCreatingSession ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+              New Session
+            </button>
             <button
               type="button"
               onClick={onClose}
@@ -492,7 +495,7 @@ export default function GooglePhotosPicker({
               type="button"
               onClick={handleImport}
               disabled={!canImport}
-              className="rounded-xl bg-blue-600 px-6 py-2 font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded-xl bg-blue-600 px-6 py-2 font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Import {selectedPhotos.size} Photo{selectedPhotos.size !== 1 ? 's' : ''}
             </button>

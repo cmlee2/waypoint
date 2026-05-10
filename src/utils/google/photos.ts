@@ -33,6 +33,52 @@ export interface GooglePhotoDownloadResponse {
   mimeType: string;
 }
 
+export interface GooglePhotosPickerSession {
+  id: string;
+  pickerUri: string;
+  pollingConfig?: {
+    pollInterval?: string;
+    timeoutIn?: string;
+  };
+  expireTime?: string;
+  pickingConfig?: {
+    maxItemCount?: string;
+  };
+  mediaItemsSet?: boolean;
+}
+
+export interface GooglePhotosPickedMediaItem {
+  id: string;
+  createTime: string;
+  type: 'PHOTO' | 'VIDEO' | 'TYPE_UNSPECIFIED';
+  mediaFile: {
+    baseUrl: string;
+    mimeType: string;
+    filename: string;
+    mediaFileMetadata?: {
+      width?: number;
+      height?: number;
+      cameraMake?: string;
+      cameraModel?: string;
+      photoMetadata?: {
+        focalLength?: number;
+        apertureFNumber?: number;
+        isoEquivalent?: number;
+        exposureTime?: string;
+      };
+      videoMetadata?: {
+        fps?: number;
+        processingStatus?: 'UNSPECIFIED' | 'PROCESSING' | 'READY' | 'FAILED';
+      };
+    };
+  };
+}
+
+export interface GooglePhotosPickerMediaItemsResponse {
+  mediaItems: GooglePhotosPickedMediaItem[];
+  nextPageToken?: string;
+}
+
 export type GooglePhotosErrorCode =
   | 'token_invalid'
   | 'missing_scope'
@@ -106,17 +152,15 @@ export class GooglePhotosClient {
       }
 
       // Check that at least one relevant scope is present
-      const hasReadonly = tokenScopes.includes('https://www.googleapis.com/auth/photoslibrary.readonly');
-      const hasFull = tokenScopes.includes('https://www.googleapis.com/auth/photoslibrary');
+      const hasPickerScope = tokenScopes.includes('https://www.googleapis.com/auth/photospicker.mediaitems.readonly');
       
       console.log('✅ Scope check result:', {
-        hasReadonly,
-        hasFull,
+        hasPickerScope,
         expiresIn
       });
 
-      if (!hasReadonly && !hasFull) {
-        console.error('❌ Token missing required Photos scopes');
+      if (!hasPickerScope) {
+        console.error('❌ Token missing required Google Photos Picker scope');
         return { valid: false, reason: 'missing_scope', grantedScopes: tokenScopes.split(' ').filter(Boolean), expiresIn };
       }
 
@@ -168,7 +212,7 @@ export class GooglePhotosClient {
       if (response.status === 403) {
         const message = error.error?.message || 'Google denied access to Google Photos.';
         throw new GooglePhotosError(
-          `Access Denied (403): ${message} This usually means the Photos Library API is not enabled for the project, the OAuth consent/test-user setup is incomplete, or the token was granted in a stale session.`,
+          `Access Denied (403): ${message} This usually means the legacy Google Photos Library API is no longer available for this flow. Use the Google Photos Picker API instead.`,
           'api_denied',
           403
         );
@@ -241,7 +285,11 @@ export class GooglePhotosClient {
   async downloadPhoto(photo: GooglePhoto, width?: number, height?: number): Promise<Blob> {
     const url = this.getPhotoDownloadUrl(photo, width, height);
 
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${this.accessToken}`,
+      },
+    });
     if (!response.ok) {
       throw new GooglePhotosError(
         `Failed to download photo: ${response.statusText}`,
@@ -251,6 +299,126 @@ export class GooglePhotosClient {
     }
 
     return await response.blob();
+  }
+
+  async createPickerSession(maxItemCount: number = 15): Promise<GooglePhotosPickerSession> {
+    const response = await fetch('https://photospicker.googleapis.com/v1/sessions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        pickingConfig: {
+          maxItemCount: String(Math.min(Math.max(maxItemCount, 1), 2000)),
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new GooglePhotosError(
+        `Failed to create Google Photos Picker session: ${error.error?.message || response.statusText}`,
+        response.status === 403 ? 'api_denied' : 'network_error',
+        response.status
+      );
+    }
+
+    return await response.json();
+  }
+
+  async getPickerSession(sessionId: string): Promise<GooglePhotosPickerSession> {
+    const response = await fetch(`https://photospicker.googleapis.com/v1/sessions/${sessionId}`, {
+      headers: {
+        'Authorization': `Bearer ${this.accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new GooglePhotosError(
+        `Failed to get Google Photos Picker session: ${error.error?.message || response.statusText}`,
+        response.status === 403 ? 'api_denied' : 'network_error',
+        response.status
+      );
+    }
+
+    return await response.json();
+  }
+
+  async listPickerMediaItems(
+    sessionId: string,
+    pageSize: number = 50,
+    pageToken?: string
+  ): Promise<GooglePhotosPickerMediaItemsResponse> {
+    const url = new URL('https://photospicker.googleapis.com/v1/mediaItems');
+    url.searchParams.set('sessionId', sessionId);
+    url.searchParams.set('pageSize', String(pageSize));
+    if (pageToken) {
+      url.searchParams.set('pageToken', pageToken);
+    }
+
+    const response = await fetch(url.toString(), {
+      headers: {
+        'Authorization': `Bearer ${this.accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new GooglePhotosError(
+        `Failed to list picked media items: ${error.error?.message || response.statusText}`,
+        response.status === 403 ? 'api_denied' : 'network_error',
+        response.status
+      );
+    }
+
+    return await response.json();
+  }
+
+  async deletePickerSession(sessionId: string): Promise<void> {
+    const response = await fetch(`https://photospicker.googleapis.com/v1/sessions/${sessionId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${this.accessToken}`,
+      },
+    });
+
+    if (!response.ok && response.status !== 404) {
+      const error = await response.json().catch(() => ({}));
+      throw new GooglePhotosError(
+        `Failed to delete Google Photos Picker session: ${error.error?.message || response.statusText}`,
+        response.status === 403 ? 'api_denied' : 'network_error',
+        response.status
+      );
+    }
+  }
+
+  convertPickedMediaItemToGooglePhoto(item: GooglePhotosPickedMediaItem): GooglePhoto {
+    const metadata = item.mediaFile.mediaFileMetadata || {};
+    const photoMetadata = metadata.photoMetadata;
+
+    return {
+      id: item.id,
+      baseUrl: item.mediaFile.baseUrl,
+      filename: item.mediaFile.filename,
+      mimeType: item.mediaFile.mimeType,
+      creationTime: item.createTime,
+      mediaMetadata: {
+        width: String(metadata.width || 0),
+        height: String(metadata.height || 0),
+        photo: photoMetadata
+          ? {
+              cameraMake: metadata.cameraMake,
+              cameraModel: metadata.cameraModel,
+              focalLength: photoMetadata.focalLength,
+              apertureFNumber: photoMetadata.apertureFNumber,
+              isoEquivalent: photoMetadata.isoEquivalent,
+              exposureTime: photoMetadata.exposureTime,
+            }
+          : undefined,
+      },
+    };
   }
 
   /**

@@ -3,12 +3,11 @@
  */
 
 export const GOOGLE_PHOTOS_SCOPES = {
-  READONLY: 'https://www.googleapis.com/auth/photoslibrary.readonly',
-  FULL_ACCESS: 'https://www.googleapis.com/auth/photoslibrary',
+  PICKER_READONLY: 'https://www.googleapis.com/auth/photospicker.mediaitems.readonly',
 } as const;
 
 export const REQUIRED_SCOPES = [
-  GOOGLE_PHOTOS_SCOPES.READONLY,
+  GOOGLE_PHOTOS_SCOPES.PICKER_READONLY,
 ] as const;
 
 export type GoogleScope = typeof GOOGLE_PHOTOS_SCOPES[keyof typeof GOOGLE_PHOTOS_SCOPES];
@@ -37,13 +36,12 @@ export function validateRequiredScopes(grantedScopes: string[]): {
  */
 export function formatScopeErrorMessage(missingScopes: string[]): string {
   const scopeNames = missingScopes.map(scope => {
-    if (scope.includes('readonly')) return 'Read-only access to photos';
-    if (scope.includes('photoslibrary')) return 'Full access to photos';
+    if (scope.includes('photospicker')) return 'Google Photos Picker access';
     return scope;
   });
 
-  return `Insufficient permissions. Missing: ${scopeNames.join(', ')}. ` +
-    'Please re-authorize with all required permissions.';
+  return `Google Photos access is missing: ${scopeNames.join(', ')}. ` +
+    'Please re-authorize so you can select photos through the Google Photos Picker.';
 }
 
 /**
@@ -65,12 +63,12 @@ export function hasScope(grantedScopes: string[], scope: GoogleScope): boolean {
  */
 export function getScopeTroubleshootingSteps(): string[] {
   return [
-    '1. IMPORTANT: When the Google sign-in window appears, you MUST check the box next to "See your Google Photos library". If you just click "Continue", access will be denied.',
+    '1. IMPORTANT: Re-authorize with Google Photos Picker access. The old Google Photos Library read scopes are no longer sufficient for browsing the full library.',
     '2. Go to Google Cloud Console (https://console.cloud.google.com/)',
-    '3. Ensure "Photos Library API" is ENABLED in the Library section',
+    '3. Ensure "Google Photos Picker API" is ENABLED in the Library section',
     '4. Navigate to "APIs & Services" → "OAuth consent screen"',
     '5. Click "Edit App" and in the "Scopes" step, manually ADD this one:',
-    '   - .../auth/photoslibrary.readonly',
+    '   - .../auth/photospicker.mediaitems.readonly',
     '6. In the "Test users" section, ensure your current email is added',
     '7. If you still have issues, try clearing your browser cache and re-authorizing.',
   ];
@@ -88,8 +86,7 @@ export function parseScopes(scopeString: string): string[] {
  */
 export function formatScopesForDisplay(scopes: string[]): string {
   return scopes.map(scope => {
-    if (scope.includes('readonly')) return 'Read-only access';
-    if (scope.includes('photoslibrary')) return 'Full access';
+    if (scope.includes('photospicker')) return 'Google Photos Picker access';
     return scope;
   }).join(', ');
 }
