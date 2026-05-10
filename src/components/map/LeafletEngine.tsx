@@ -126,13 +126,23 @@ export default function LeafletEngine({
 
     if (L && mapInstance) {
       const handleClusterClick = (e: any) => {
+        console.log('📍 Cluster click event:', e.type, e.layer?.constructor?.name);
+
+        // Only process if this is actually a cluster click
+        if (!e.layer || typeof e.layer.getAllChildMarkers !== 'function') {
+          console.log('📍 Not a cluster event, ignoring');
+          return;
+        }
+
         // Close any existing popups first
         mapInstance.closePopup();
 
         const cluster = e.layer || e.source || e.target;
-        if (cluster && typeof cluster.getAllChildMarkers === 'function') {
-          const childMarkers = cluster.getAllChildMarkers();
-          if (childMarkers.length > 1) {
+        const childMarkers = cluster.getAllChildMarkers();
+
+        console.log('📍 Processing cluster with', childMarkers.length, 'markers');
+
+        if (childMarkers.length > 1) {
             const clusterMarkersData = childMarkers.map((childMarker: any) => {
               const childLat = childMarker.getLatLng().lat;
               const childLng = childMarker.getLatLng().lng;
@@ -275,6 +285,9 @@ export default function LeafletEngine({
           zoomToBoundsOnClick={false}
           spiderfyOnMaxZoom={true}
           maxClusterRadius={40}
+          spiderfyDistanceMultiplier={1.5}
+          animate={true}
+          animateAddingMarkers={true}
           iconCreateFunction={(cluster: any) => {
             const count = cluster.getChildCount();
             const childMarkers = cluster.getAllChildMarkers();

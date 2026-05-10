@@ -65,14 +65,14 @@ export function hasScope(grantedScopes: string[], scope: GoogleScope): boolean {
  */
 export function getScopeTroubleshootingSteps(): string[] {
   return [
-    '1. Go to Google Cloud Console (https://console.cloud.google.com/)',
-    '2. Ensure "Photos Library API" is ENABLED in the Library section',
-    '3. Navigate to "APIs & Services" → "OAuth consent screen"',
-    '4. Click "Edit App" and in the "Scopes" step, manually ADD this one:',
+    '1. IMPORTANT: When the Google sign-in window appears, you MUST check the box next to "See your Google Photos library". If you just click "Continue", access will be denied.',
+    '2. Go to Google Cloud Console (https://console.cloud.google.com/)',
+    '3. Ensure "Photos Library API" is ENABLED in the Library section',
+    '4. Navigate to "APIs & Services" → "OAuth consent screen"',
+    '5. Click "Edit App" and in the "Scopes" step, manually ADD this one:',
     '   - .../auth/photoslibrary.readonly',
-    '5. IMPORTANT: In the "Test users" section, ensure your current email is added',
-    '6. If the project is in "Testing" mode, ONLY whitelisted test users can log in',
-    '7. Clear browser cookies for accounts.google.com and try again',
+    '6. In the "Test users" section, ensure your current email is added',
+    '7. If you still have issues, try clearing your browser cache and re-authorizing.',
   ];
 }
 

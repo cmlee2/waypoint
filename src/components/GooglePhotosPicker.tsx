@@ -31,6 +31,8 @@ export default function GooglePhotosPicker({
   const [isScopeError, setIsScopeError] = useState(false);
   const [showTroubleshooting, setShowTroubleshooting] = useState(false);
 
+  const [debugInfo, setDebugInfo] = useState<any>(null);
+
   const { client, rateLimiter } = createGooglePhotosClient(accessToken);
 
   // Load photos when modal opens
@@ -51,14 +53,15 @@ export default function GooglePhotosPicker({
     }
 
     try {
-      console.log('🔍 Starting Google Photos load...');
-      console.log('📋 Access token info:', {
-        hasToken: !!accessToken,
-        tokenLength: accessToken?.length,
-        tokenPrefix: accessToken?.substring(0, 20) + '...'
+      // Validate token first and capture debug info
+      const response = await fetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${accessToken}`);
+      const data = await response.json();
+      setDebugInfo({
+        grantedScopes: data.scope ? data.scope.split(' ') : [],
+        expiresIn: data.expires_in,
+        email: data.email
       });
 
-      // Validate token first
       console.log('🔑 Validating Google Photos token...');
       let isTokenValid = await client.validateToken();
 
@@ -67,12 +70,18 @@ export default function GooglePhotosPicker({
         const newToken = await onTokenExpired(true);
         if (newToken) {
           console.log('✅ Token refreshed, retrying validation...');
-          // Create a new client with the new token
           const { client: newClient } = createGooglePhotosClient(newToken);
           isTokenValid = await newClient.validateToken();
           
-          if (!isTokenValid) {
-            console.error('❌ Refreshed token is also invalid');
+          if (isTokenValid) {
+            // Update debug info with new token
+            const freshResponse = await fetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${newToken}`);
+            const freshData = await freshResponse.json();
+            setDebugInfo({
+              grantedScopes: freshData.scope ? freshData.scope.split(' ') : [],
+              expiresIn: freshData.expires_in,
+              email: freshData.email
+            });
           }
         }
       }
@@ -205,6 +214,21 @@ export default function GooglePhotosPicker({
                             <li key={index}>{step}</li>
                           ))}
                         </ol>
+                        
+                        {debugInfo && (
+                          <div className="mt-4 pt-4 border-t border-red-200 text-xs font-mono">
+                            <p className="font-bold uppercase mb-1">Current Token Debug Info:</p>
+                            <p>Email: {debugInfo.email}</p>
+                            <p>Expires In: {debugInfo.expiresIn}s</p>
+                            <p className="mt-1">Granted Scopes:</p>
+                            <ul className="list-disc list-inside pl-2">
+                              {debugInfo.grantedScopes.map((s: string) => (
+                                <li key={s} className="truncate">{s}</li>
+                              ))}
+                              {debugInfo.grantedScopes.length === 0 && <li>NONE (Did you check the box?)</li>}
+                            </ul>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
