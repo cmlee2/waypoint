@@ -9,6 +9,8 @@ import 'leaflet/dist/leaflet.css';
 import 'react-leaflet-markercluster/styles';
 import ReactDOM from 'react-dom/client';
 
+type TripMarker = TripMapProps['markers'][number];
+
 // CartoDB Positron - Minimalist light style
 const TILE_LAYER_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
 const ATTRIBUTION =
@@ -103,11 +105,12 @@ export default function LeafletEngine({
           const childMarkers = cluster.getAllChildMarkers();
           if (childMarkers.length > 1) {
             // Find marker data by position matching
-            const clusterMarkersData = childMarkers.map((childMarker: any) => {
+            const matchedMarkers: Array<TripMarker | undefined> = childMarkers.map((childMarker: any) => {
               const childLat = childMarker.getLatLng().lat;
               const childLng = childMarker.getLatLng().lng;
-              return markers.find(m => Math.abs(m.lat - childLat) < 0.0001 && Math.abs(m.lng - childLng) < 0.0001);
-            }).filter(Boolean);
+              return markers.find((marker: TripMarker) => Math.abs(marker.lat - childLat) < 0.0001 && Math.abs(marker.lng - childLng) < 0.0001);
+            });
+            const clusterMarkersData: TripMarker[] = matchedMarkers.filter((marker): marker is TripMarker => Boolean(marker));
 
             if (clusterMarkersData.length > 0) {
               const uniqueTripNames = new Set(clusterMarkersData.map((m: any) => m.tripName || m.id));
@@ -136,10 +139,10 @@ export default function LeafletEngine({
                     const combinedMarker = {
                       ...clusterMarkersData[0],
                       photoCount: clusterMarkersData.length,
-                      photos: clusterMarkersData.flatMap(m => m.photos || []),
+                      photos: clusterMarkersData.flatMap((marker: TripMarker) => marker.photos || []),
                       placeName: locationName,
-                      startDate: clusterMarkersData.map(m => m.startDate).filter(Boolean).sort()[0],
-                      endDate: clusterMarkersData.map(m => m.endDate).filter(Boolean).sort().reverse()[0]
+                      startDate: clusterMarkersData.map((marker: TripMarker) => marker.startDate).filter(Boolean).sort()[0],
+                      endDate: clusterMarkersData.map((marker: TripMarker) => marker.endDate).filter(Boolean).sort().reverse()[0]
                     };
                     root.render(
                       <PhotoGridPopup 
