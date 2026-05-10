@@ -9,7 +9,6 @@ export const GOOGLE_PHOTOS_SCOPES = {
 
 export const REQUIRED_SCOPES = [
   GOOGLE_PHOTOS_SCOPES.READONLY,
-  GOOGLE_PHOTOS_SCOPES.FULL_ACCESS,
 ] as const;
 
 export type GoogleScope = typeof GOOGLE_PHOTOS_SCOPES[keyof typeof GOOGLE_PHOTOS_SCOPES];
@@ -67,13 +66,13 @@ export function hasScope(grantedScopes: string[], scope: GoogleScope): boolean {
 export function getScopeTroubleshootingSteps(): string[] {
   return [
     '1. Go to Google Cloud Console (https://console.cloud.google.com/)',
-    '2. Ensure "Photos Library API" is enabled for your project',
-    '3. Navigate to APIs & Services → OAuth consent screen',
-    '4. Add these scopes to your consent screen:',
-    '   - https://www.googleapis.com/auth/photoslibrary.readonly',
-    '   - https://www.googleapis.com/auth/photoslibrary',
-    '5. Clear your browser cookies for accounts.google.com',
-    '6. Try authorizing again',
+    '2. Ensure "Photos Library API" is ENABLED in the Library section',
+    '3. Navigate to "APIs & Services" → "OAuth consent screen"',
+    '4. Click "Edit App" and in the "Scopes" step, manually ADD this one:',
+    '   - .../auth/photoslibrary.readonly',
+    '5. IMPORTANT: In the "Test users" section, ensure your current email is added',
+    '6. If the project is in "Testing" mode, ONLY whitelisted test users can log in',
+    '7. Clear browser cookies for accounts.google.com and try again',
   ];
 }
 

@@ -68,10 +68,9 @@ export class GooglePhotosClient {
         return false;
       }
 
-      // Check if the token has ALL the required scopes (not just one)
+      // Check if the token has the required readonly scope
       const requiredScopes = [
-        'https://www.googleapis.com/auth/photoslibrary.readonly',
-        'https://www.googleapis.com/auth/photoslibrary'
+        'https://www.googleapis.com/auth/photoslibrary.readonly'
       ];
 
       const tokenScopes = data.scope || '';
@@ -86,44 +85,22 @@ export class GooglePhotosClient {
 
       // Check that at least the readonly scope is present
       const hasReadonly = tokenScopes.includes('https://www.googleapis.com/auth/photoslibrary.readonly');
-      const hasFullAccess = tokenScopes.includes('https://www.googleapis.com/auth/photoslibrary');
       
       console.log('✅ Scope check result:', {
         hasReadonly,
-        hasFullAccess,
         expiresIn
       });
 
-      if (!hasReadonly && !hasFullAccess) {
-        console.error('❌ Token missing required Photos scopes');
+      if (!hasReadonly) {
+        console.error('❌ Token missing required Photos readonly scope');
         return false;
       }
 
-      // Make a test API call to verify the token actually works for the Photos Library API
-      console.log('🧪 Making test API call to verify Photos Library API access...');
-      const testResponse = await fetch('https://photoslibrary.googleapis.com/v1/mediaItems:search', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ pageSize: 1 }),
-      });
-
-      if (!testResponse.ok) {
-        const testError = await testResponse.json();
-        console.error('❌ Photos API test call failed:', testError);
-        
-        if (testResponse.status === 403) {
-          console.error('This is usually a Scope issue or the Photos Library API is not enabled in Google Cloud Console.');
-        } else if (testResponse.status === 401) {
-          console.error('The token is expired or invalid for this specific API.');
-        }
-        
-        return false;
-      }
-
-      console.log('✅ Test API call successful - token is valid');
+      // Success! We have a valid token with correct scopes.
+      // Note: We skip the test API call during basic validation to prevent 403 loops.
+      // The API calls themselves (listPhotos) will handle 403s if the API is disabled.
+      
+      console.log('✅ Token validation successful (scopes & expiration)');
       return true;
     } catch (error) {
       console.error('❌ Token validation error:', error);
@@ -138,17 +115,11 @@ export class GooglePhotosClient {
    */
   async listPhotos(pageSize: number = 50, pageToken?: string): Promise<GooglePhotosListResponse> {
     const url = new URL('https://photoslibrary.googleapis.com/v1/mediaItems:search');
-    url.searchParams.append('pageSize', String(pageSize));
-
-    if (pageToken) {
-      url.searchParams.append('pageToken', pageToken);
-    }
-
-    console.log('Google Photos API Request:', {
+    // Note: Do not append pageSize to URL for POST mediaItems:search
+    
+    console.log('Google Photos API Request (POST):', {
       url: url.toString(),
-      hasAccessToken: !!this.accessToken,
-      accessTokenLength: this.accessToken?.length,
-      accessTokenPrefix: this.accessToken?.substring(0, 20) + '...'
+      hasAccessToken: !!this.accessToken
     });
 
     const response = await fetch(url.toString(), {
@@ -163,28 +134,19 @@ export class GooglePhotosClient {
       }),
     });
 
-    console.log('Google Photos API Response:', {
-      status: response.status,
-      statusText: response.statusText,
-      ok: response.ok
-    });
-
     if (!response.ok) {
       const error = await response.json();
-      console.error('Google Photos API Error:', error);
-      console.error('Full error details:', JSON.stringify(error, null, 2));
+      console.error('❌ Google Photos API Error (Full Body):', JSON.stringify(error, null, 2));
 
-      // Check if it's a scope issue
-      if (error.error?.message?.includes('insufficient authentication scopes')) {
-        console.error('❌ Scope issue detected despite token validation passing');
-        console.error('This suggests the token is invalid or scopes were not properly granted');
-        throw new Error(
-          `Authentication failed despite valid token. This usually means: ` +
-          `1) The OAuth consent screen needs to be reconfigured, ` +
-          `2) The token is expired, or ` +
-          `3) The app needs to be re-authorized. ` +
-          `Please check the Google Cloud Console OAuth consent screen configuration.`
-        );
+      if (response.status === 403) {
+        const message = error.error?.message || '';
+        if (message.includes('not enabled')) {
+          throw new Error('Access Denied (403): The "Photos Library API" is enabled in your Library, but might not be fully active yet. Please wait a few minutes.');
+        } else if (message.includes('permission')) {
+          throw new Error('Access Denied (403): Your account doesn\'t have permission. Ensure you added your email as a "Test User" in the OAuth Consent Screen settings.');
+        } else {
+          throw new Error(`Access Denied (403): ${message}. Please ensure you've added the required scopes to your "OAuth Consent Screen" configuration in Google Console.`);
+        }
       }
 
       throw new Error(`Failed to list photos: ${error.error?.message || response.statusText}`);

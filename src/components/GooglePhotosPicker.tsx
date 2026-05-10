@@ -115,7 +115,7 @@ export default function GooglePhotosPicker({
           errorMessage.includes('Missing scopes') ||
           errorMessage.includes('scope')) {
         console.error('❌ Scope-related error detected');
-        setError(formatScopeErrorMessage(['photoslibrary.readonly', 'photoslibrary']));
+        setError(formatScopeErrorMessage(['photoslibrary.readonly']));
         setIsScopeError(true);
       } else {
         setError(errorMessage);

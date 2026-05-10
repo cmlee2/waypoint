@@ -76,10 +76,8 @@ export default function PhotoUploader({
     const initToken = async () => {
       const token = await fetchGoogleToken();
       setHasCheckedForToken(true);
-      // Only auto-open if we found a token
       if (token) {
-        console.log('✅ Token found on mount, auto-opening picker');
-        setGooglePhotosOpen(true);
+        console.log('✅ Google token found and verified on mount');
       }
     };
 

@@ -126,6 +126,9 @@ export default function LeafletEngine({
 
     if (L && mapInstance) {
       const handleClusterClick = (e: any) => {
+        // Close any existing popups first
+        mapInstance.closePopup();
+
         const cluster = e.layer || e.source || e.target;
         if (cluster && typeof cluster.getAllChildMarkers === 'function') {
           const childMarkers = cluster.getAllChildMarkers();
@@ -146,7 +149,8 @@ export default function LeafletEngine({
                 autoClose: false,
                 closeOnClick: false,
                 minWidth: 280,
-                maxWidth: 320
+                maxWidth: 380,
+                closeButton: true
               });
 
               const popupContent = document.createElement('div');
@@ -188,7 +192,15 @@ export default function LeafletEngine({
                         .sort()
                         .reverse()[0]
                     };
-                    root.render(<PhotoGridPopup marker={combinedMarker} />);
+                    root.render(
+                      <PhotoGridPopup
+                        marker={combinedMarker}
+                        onPhotoClick={(photoId) => {
+                          onMarkerClick?.(photoId);
+                          popup.close();
+                        }}
+                      />
+                    );
                   } else {
                     root.render(
                       <ClusteredTripsPopup
@@ -303,13 +315,17 @@ export default function LeafletEngine({
               icon={createMarkerIcon(marker.placeName)}
               eventHandlers={{
                 click: (e: any) => {
+                  console.log('📍 Individual marker clicked:', marker.id, marker.label);
                   e.target.openPopup();
                   onMarkerClick?.(marker.id);
                 },
               }}
             >
               <Popup className="travel-popup" autoClose={false}>
-                <PhotoGridPopup marker={marker} />
+                <PhotoGridPopup
+                  marker={marker}
+                  onPhotoClick={(photoId) => onMarkerClick?.(photoId)}
+                />
               </Popup>
             </Marker>
           ))}

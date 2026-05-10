@@ -7,9 +7,10 @@ import { MapPin, Calendar, Eye } from 'lucide-react';
 interface PhotoGridPopupProps {
   marker: MapMarker;
   onSeeDetails?: () => void;
+  onPhotoClick?: (photoId: string) => void;
 }
 
-export default function PhotoGridPopup({ marker, onSeeDetails }: PhotoGridPopupProps) {
+export default function PhotoGridPopup({ marker, onSeeDetails, onPhotoClick }: PhotoGridPopupProps) {
   const photos = marker.photos || [];
   const photoCount = marker.photoCount || 0;
 
@@ -87,12 +88,13 @@ export default function PhotoGridPopup({ marker, onSeeDetails }: PhotoGridPopupP
           return (
             <div
               key={photo.id}
-              className={`relative ${getGridClass(index, Math.min(photoCount, 4))} overflow-hidden rounded-lg`}
+              className={`relative ${getGridClass(index, Math.min(photoCount, 4))} overflow-hidden rounded-lg cursor-pointer group`}
+              onClick={() => onPhotoClick?.(photo.id)}
             >
               <img
                 src={photo.storage_url}
                 alt={photo.caption || 'Photo'}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover transition-transform group-hover:scale-105"
               />
               {isLastPhoto && remainingPhotos > 0 && (
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center">
@@ -100,6 +102,12 @@ export default function PhotoGridPopup({ marker, onSeeDetails }: PhotoGridPopupP
                     <Eye size={20} className="text-white mx-auto mb-1" />
                     <span className="text-white font-bold text-sm">+{remainingPhotos}</span>
                   </div>
+                </div>
+              )}
+              {/* Hover overlay for individual photos */}
+              {!isLastPhoto && (
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                  <Eye size={16} className="text-white drop-shadow-lg" />
                 </div>
               )}
             </div>

@@ -117,18 +117,17 @@ export async function GET(request: NextRequest) {
 
     // Verify that all required scopes were granted
     const requiredScopes = [
-      'https://www.googleapis.com/auth/photoslibrary.readonly',
-      'https://www.googleapis.com/auth/photoslibrary'
+      'https://www.googleapis.com/auth/photoslibrary.readonly'
     ];
 
     const grantedScopes = tokenData.scope ? tokenData.scope.split(' ') : [];
     const missingScopes = requiredScopes.filter(scope => !grantedScopes.includes(scope));
 
-    console.log('🔍 Scope verification:', {
-      grantedScopes,
-      requiredScopes,
-      missingScopes,
-      hasAllScopes: missingScopes.length === 0
+    console.log('🔍 Scope Detail:', {
+      rawScopeString: tokenData.scope,
+      parsedGranted: grantedScopes,
+      required: requiredScopes,
+      missing: missingScopes
     });
 
     if (missingScopes.length > 0) {
