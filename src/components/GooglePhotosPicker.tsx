@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { X, Loader2, Check, Image as ImageIcon, RefreshCw, AlertCircle } from 'lucide-react';
 import {
   GooglePhoto,
@@ -42,6 +42,7 @@ export default function GooglePhotosPicker({
   const [error, setError] = useState<string | null>(null);
   const [errorKind, setErrorKind] = useState<GooglePhotosErrorKind | null>(null);
   const [showTroubleshooting, setShowTroubleshooting] = useState(false);
+  const hasAttemptedTokenRetryRef = useRef(false);
 
   const [debugInfo, setDebugInfo] = useState<any>(null);
 
@@ -55,6 +56,7 @@ export default function GooglePhotosPicker({
   useEffect(() => {
     if (!isOpen || !accessToken) return;
 
+    hasAttemptedTokenRetryRef.current = false;
     loadPhotos();
   }, [isOpen, accessToken]);
 
@@ -180,23 +182,38 @@ export default function GooglePhotosPicker({
     } catch (err) {
       console.error('❌ Failed to load photos:', err);
 
-      if (err instanceof GooglePhotosError && err.code === 'api_denied' && allowRefreshRetry && onTokenExpired) {
-        console.log('🔄 API denied with valid scopes, attempting one forced token refresh...');
-        const newToken = await onTokenExpired(true);
-        if (newToken) {
-          const { client: refreshedClient } = createGooglePhotosClient(newToken);
-          const refreshedValidation = await refreshedClient.validateToken();
+      if (err instanceof GooglePhotosError && err.code === 'api_denied') {
+        if (hasAttemptedTokenRetryRef.current) {
+          setLoadError(
+            'api_denied',
+            err.message
+          );
+          return;
+        }
 
-          if (refreshedValidation.valid) {
-            await updateDebugInfo(newToken);
-            await loadPhotos(pageToken, {
-              accessTokenOverride: newToken,
-              clientOverride: refreshedClient,
-              allowRefreshRetry: false,
-            });
-            return;
+        hasAttemptedTokenRetryRef.current = true;
+
+        if (allowRefreshRetry && onTokenExpired) {
+          console.log('🔄 API denied with valid scopes, attempting one forced token refresh...');
+          const newToken = await onTokenExpired(true);
+          if (newToken) {
+            const { client: refreshedClient } = createGooglePhotosClient(newToken);
+            const refreshedValidation = await refreshedClient.validateToken();
+
+            if (refreshedValidation.valid) {
+              await updateDebugInfo(newToken);
+              await loadPhotos(pageToken, {
+                accessTokenOverride: newToken,
+                clientOverride: refreshedClient,
+                allowRefreshRetry: false,
+              });
+              return;
+            }
           }
         }
+
+        setLoadError('api_denied', err.message);
+        return;
       }
 
       if (err instanceof GooglePhotosError) {
