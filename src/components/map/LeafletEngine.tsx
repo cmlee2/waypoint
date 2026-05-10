@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { TripMapProps } from '@/types/map';
 import { truncatePlaceName } from '@/utils/location/formatAddress';
 import PhotoGridPopup from './PhotoGridPopup';
@@ -11,74 +12,71 @@ import ReactDOM from 'react-dom/client';
 
 type TripMarker = TripMapProps['markers'][number];
 
-// CartoDB Positron - Minimalist light style
-const TILE_LAYER_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
-const ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+// Dynamically import Leaflet components (no SSR)
+const MapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapContainer), { ssr: false });
+const TileLayer = dynamic(() => import('react-leaflet').then(mod => mod.TileLayer), { ssr: false });
+const Marker = dynamic(
+  () => import('react-leaflet').then(mod => mod.Marker),
+  { ssr: false }
+) as React.ComponentType<any>;
+const Popup = dynamic(() => import('react-leaflet').then(mod => mod.Popup), { ssr: false });
+const ZoomControl = dynamic(() => import('react-leaflet').then(mod => mod.ZoomControl), { ssr: false });
 
-export default function LeafletEngine({ 
-  center, 
-  zoom, 
-  markers, 
+type MarkerClusterGroupProps = React.PropsWithChildren<{
+  showCoverageOnHover?: boolean;
+  zoomToBoundsOnClick?: boolean;
+  spiderfyOnMaxZoom?: boolean;
+  maxClusterRadius?: number;
+  disableClusteringAtZoom?: number;
+  iconCreateFunction?: (cluster: any) => any;
+  onClusterReady?: (clusterGroup: any) => void;
+}>;
+
+const MarkerClusterGroup = dynamic(
+  async () => {
+    const mod = await import('react-leaflet-markercluster');
+    const ClusterGroup = mod.default as React.ComponentType<MarkerClusterGroupProps>;
+
+    return function MarkerClusterGroupWrapper({
+      children,
+      onClusterReady,
+      ...props
+    }: MarkerClusterGroupProps & { onClusterReady?: (clusterGroup: any) => void }) {
+      const clusterRef = useRef<any>(null);
+
+      useEffect(() => {
+        if (clusterRef.current) {
+          onClusterReady?.(clusterRef.current);
+        }
+      }, [onClusterReady]);
+
+      const ClusterGroupAny = ClusterGroup as any;
+      return <ClusterGroupAny ref={clusterRef} {...props}>{children}</ClusterGroupAny>;
+    };
+  },
+  { ssr: false }
+);
+
+// CartoDB Positron - Minimalist light style
+const TILE_LAYER_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+const ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
+export default function LeafletEngine({
+  center,
+  zoom,
+  markers,
   onMarkerClick,
-  selectedMarkerId,
-  showSeeDetails = true,
-  className 
+  className
 }: TripMapProps) {
   const [L, setL] = useState<any>(null);
   const [mapInstance, setMapInstance] = useState<any>(null);
-  const [MapComponents, setMapComponents] = useState<any>(null);
-  
   const clusterGroupRef = useRef<any>(null);
-  const markersRef = useRef<Map<string, any>>(new Map());
 
-  // Consolidated loading to prevent ChunkLoadErrors
   useEffect(() => {
-    const loadLeaflet = async () => {
-      try {
-        const [Leaflet, ReactLeaflet, MarkerCluster] = await Promise.all([
-          import('leaflet'),
-          import('react-leaflet'),
-          import('react-leaflet-markercluster')
-        ]);
-
-        setL(Leaflet.default);
-        setMapComponents({
-          MapContainer: ReactLeaflet.MapContainer,
-          TileLayer: ReactLeaflet.TileLayer,
-          Marker: ReactLeaflet.Marker,
-          Popup: ReactLeaflet.Popup,
-          ZoomControl: ReactLeaflet.ZoomControl,
-          MarkerClusterGroup: MarkerCluster.default
-        });
-      } catch (error) {
-        console.error('❌ Failed to load Leaflet components:', error);
-      }
-    };
-
-    loadLeaflet();
+    import('leaflet').then(mod => {
+      setL(mod.default);
+    });
   }, []);
-
-  // Sync external selection
-  useEffect(() => {
-    if (mapInstance && selectedMarkerId && clusterGroupRef.current) {
-      const marker = markersRef.current.get(selectedMarkerId);
-      if (marker) {
-        const visibleParent = clusterGroupRef.current.getVisibleParent(marker);
-        if (visibleParent && visibleParent !== marker) {
-          clusterGroupRef.current.zoomToShowLayer(marker, () => {
-            setTimeout(() => {
-              if (mapInstance) mapInstance.panTo(marker.getLatLng());
-              marker.openPopup();
-            }, 100);
-          });
-        } else {
-          mapInstance.panTo(marker.getLatLng());
-          marker.openPopup();
-        }
-      }
-    }
-  }, [selectedMarkerId, mapInstance]);
 
   const getLocationNameFromCluster = useCallback((clusterMarkers: any[]): string => {
     if (clusterMarkers.length === 0) return 'Trip Spot';
@@ -95,26 +93,23 @@ export default function LeafletEngine({
   }, []);
 
   const handleClusterReady = useCallback((clusterGroup: any) => {
-    if (!clusterGroup || clusterGroupRef.current === clusterGroup) return;
     clusterGroupRef.current = clusterGroup;
-    
+
     if (L && mapInstance) {
       const handleClusterClick = (e: any) => {
         const cluster = e.layer || e.source || e.target;
         if (cluster && typeof cluster.getAllChildMarkers === 'function') {
           const childMarkers = cluster.getAllChildMarkers();
           if (childMarkers.length > 1) {
-            // Find marker data by position matching
-            const matchedMarkers: Array<TripMarker | undefined> = childMarkers.map((childMarker: any) => {
+            const clusterMarkersData = childMarkers.map((childMarker: any) => {
               const childLat = childMarker.getLatLng().lat;
               const childLng = childMarker.getLatLng().lng;
-              return markers.find((marker: TripMarker) => Math.abs(marker.lat - childLat) < 0.0001 && Math.abs(marker.lng - childLng) < 0.0001);
-            });
-            const clusterMarkersData: TripMarker[] = matchedMarkers.filter((marker): marker is TripMarker => Boolean(marker));
+              return markers.find(m => Math.abs(m.lat - childLat) < 0.0001 && Math.abs(m.lng - childLng) < 0.0001);
+            }).filter(Boolean);
 
             if (clusterMarkersData.length > 0) {
-              const uniqueTripNames = new Set(clusterMarkersData.map((m: any) => m.tripName || m.id));
-              const isSingleTrip = uniqueTripNames.size === 1;
+              const uniqueTripIds = new Set(clusterMarkersData.map((m: any) => m.tripName || m.id));
+              const isSingleTrip = uniqueTripIds.size === 1;
               const locationName = getLocationNameFromCluster(clusterMarkersData);
 
               const popup = L.popup({
@@ -122,8 +117,7 @@ export default function LeafletEngine({
                 autoClose: false,
                 closeOnClick: false,
                 minWidth: 280,
-                maxWidth: 320,
-                offset: [0, -20]
+                maxWidth: 320
               });
 
               const popupContent = document.createElement('div');
@@ -144,16 +138,11 @@ export default function LeafletEngine({
                       startDate: clusterMarkersData.map((marker: TripMarker) => marker.startDate).filter(Boolean).sort()[0],
                       endDate: clusterMarkersData.map((marker: TripMarker) => marker.endDate).filter(Boolean).sort().reverse()[0]
                     };
-                    root.render(
-                      <PhotoGridPopup 
-                        marker={combinedMarker} 
-                        onSeeDetails={showSeeDetails ? () => onMarkerClick?.(clusterMarkersData[0].id) : undefined}
-                      />
-                    );
+                    root.render(<PhotoGridPopup marker={combinedMarker} />);
                   } else {
                     root.render(
-                      <ClusteredTripsPopup 
-                        markers={clusterMarkersData} 
+                      <ClusteredTripsPopup
+                        markers={clusterMarkersData}
                         locationName={locationName}
                         onTripClick={(id) => {
                           onMarkerClick?.(id);
@@ -171,18 +160,13 @@ export default function LeafletEngine({
 
       clusterGroup.on('clusterclick', handleClusterClick);
     }
-  }, [L, mapInstance, markers, onMarkerClick, showSeeDetails, getLocationNameFromCluster]);
+  }, [L, mapInstance, markers, onMarkerClick, getLocationNameFromCluster]);
 
-  if (!L || !MapComponents) return (
-    <div className={`${className} bg-stone-50 rounded-xl flex items-center justify-center min-h-[400px] border-2 border-stone-200 shadow-inner`}>
-      <div className="text-stone-400 font-medium animate-pulse flex flex-col items-center gap-2">
-        <div className="w-6 h-6 border-2 border-stone-300 border-t-stone-500 rounded-full animate-spin"></div>
-        Restoring Atlas...
-      </div>
+  if (!L) return (
+    <div className={`${className} bg-stone-50 rounded-xl flex items-center justify-center min-h-[400px] border-2 border-stone-200`}>
+      <div className="text-stone-400 font-medium animate-pulse">Initializing Map...</div>
     </div>
   );
-
-  const { MapContainer, TileLayer, Marker, Popup, ZoomControl, MarkerClusterGroup } = MapComponents;
 
   const createMarkerIcon = (placeName?: string) => {
     const truncatedName = truncatePlaceName(placeName || '', 25);
@@ -196,7 +180,7 @@ export default function LeafletEngine({
               <circle cx="12" cy="9" r="1.5" fill="#FEF2F2"/>
             </svg>
           </div>
-          ${truncatedName ? `<div class="mt-1 px-3 py-1.5 bg-white/95 backdrop-blur-sm rounded-lg shadow-md border border-stone-100 text-xs font-semibold text-stone-900 whitespace-nowrap max-w-[150px] overflow-hidden text-ellipsis">${truncatedName}</div>` : ''}
+          ${truncatedName ? `<div class="mt-1 px-3 py-1.5 bg-white/95 backdrop-blur-sm rounded-lg shadow-md border border-stone-100 text-xs font-semibold text-red-900 whitespace-nowrap max-w-[150px] overflow-hidden text-ellipsis">${truncatedName}</div>` : ''}
         </div>
       `,
       iconSize: [32, 32],
@@ -211,13 +195,15 @@ export default function LeafletEngine({
         zoom={zoom}
         zoomControl={false}
         className="w-full h-full"
-        ref={setMapInstance}
+        ref={(map) => {
+          if (map && !mapInstance) setMapInstance(map);
+        }}
       >
         <TileLayer url={TILE_LAYER_URL} attribution={ATTRIBUTION} />
         <ZoomControl position="topright" />
-        
+
         <MarkerClusterGroup
-          ref={handleClusterReady}
+          onClusterReady={handleClusterReady}
           showCoverageOnHover={false}
           zoomToBoundsOnClick={false}
           spiderfyOnMaxZoom={true}
@@ -245,7 +231,7 @@ export default function LeafletEngine({
                       ${count}
                     </div>
                   </div>
-                  <div class="mt-1 px-3 py-1.5 bg-white/95 backdrop-blur-sm rounded-lg shadow-md border border-stone-100 text-xs font-semibold text-stone-900 whitespace-nowrap max-w-[150px] overflow-hidden text-ellipsis">
+                  <div class="mt-1 px-3 py-1.5 bg-red-50/90 backdrop-blur-sm rounded-lg shadow-md border border-red-200 text-xs font-semibold text-red-900 whitespace-nowrap max-w-[150px] overflow-hidden text-ellipsis">
                     ${locationName}
                   </div>
                 </div>
@@ -260,18 +246,12 @@ export default function LeafletEngine({
               key={marker.id}
               position={[marker.lat, marker.lng]}
               icon={createMarkerIcon(marker.placeName)}
-              ref={(ref: any) => {
-                if (ref) markersRef.current.set(marker.id, ref);
-              }}
               eventHandlers={{
                 click: () => onMarkerClick?.(marker.id),
               }}
             >
-              <Popup className="travel-popup" autoClose={false} closeOnClick={false}>
-                <PhotoGridPopup 
-                  marker={marker} 
-                  onSeeDetails={showSeeDetails ? () => onMarkerClick?.(marker.id) : undefined}
-                />
+              <Popup className="travel-popup" autoClose={false}>
+                <PhotoGridPopup marker={marker} />
               </Popup>
             </Marker>
           ))}
