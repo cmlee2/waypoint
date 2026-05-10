@@ -143,89 +143,88 @@ export default function LeafletEngine({
         console.log('📍 Processing cluster with', childMarkers.length, 'markers');
 
         if (childMarkers.length > 1) {
-            const clusterMarkersData = childMarkers.map((childMarker: any) => {
-              const childLat = childMarker.getLatLng().lat;
-              const childLng = childMarker.getLatLng().lng;
-              return markers.find(m => Math.abs(m.lat - childLat) < 0.0001 && Math.abs(m.lng - childLng) < 0.0001);
-            }).filter(Boolean);
+          const clusterMarkersData = childMarkers.map((childMarker: any) => {
+            const childLat = childMarker.getLatLng().lat;
+            const childLng = childMarker.getLatLng().lng;
+            return markers.find(m => Math.abs(m.lat - childLat) < 0.0001 && Math.abs(m.lng - childLng) < 0.0001);
+          }).filter(Boolean);
 
-            if (clusterMarkersData.length > 0) {
-              const uniqueTripIds = new Set(clusterMarkersData.map((m: any) => m.tripName || m.id));
-              const isSingleTrip = uniqueTripIds.size === 1;
-              const locationName = getLocationNameFromCluster(clusterMarkersData);
+          if (clusterMarkersData.length > 0) {
+            const uniqueTripIds = new Set(clusterMarkersData.map((m: any) => m.tripName || m.id));
+            const isSingleTrip = uniqueTripIds.size === 1;
+            const locationName = getLocationNameFromCluster(clusterMarkersData);
 
-              const popup = L.popup({
-                className: 'travel-popup',
-                autoClose: false,
-                closeOnClick: false,
-                minWidth: 280,
-                maxWidth: 380,
-                closeButton: true
-              });
+            const popup = L.popup({
+              className: 'travel-popup',
+              autoClose: false,
+              closeOnClick: false,
+              minWidth: 280,
+              maxWidth: 380,
+              closeButton: true
+            });
 
-              const popupContent = document.createElement('div');
-              const containerId = `cluster-popup-${cluster._leaflet_id}`;
-              popupContent.innerHTML = `<div id="${containerId}"></div>`;
-              popup.setLatLng(e.latlng).setContent(popupContent).openOn(mapInstance);
+            const popupContent = document.createElement('div');
+            const containerId = `cluster-popup-${cluster._leaflet_id}`;
+            popupContent.innerHTML = `<div id="${containerId}"></div>`;
+            popup.setLatLng(e.latlng).setContent(popupContent).openOn(mapInstance);
 
-              setTimeout(() => {
-                const container = document.getElementById(containerId);
-                if (container) {
-                  const root = ReactDOM.createRoot(container);
-                  if (isSingleTrip) {
-                    // Collect all photos from the cluster markers
-                    const allPhotos = clusterMarkersData.flatMap((marker: TripMarker) => marker.photos || []);
+            setTimeout(() => {
+              const container = document.getElementById(containerId);
+              if (container) {
+                const root = ReactDOM.createRoot(container);
+                if (isSingleTrip) {
+                  // Collect all photos from the cluster markers
+                  const allPhotos = clusterMarkersData.flatMap((marker: TripMarker) => marker.photos || []);
 
-                    console.log('📍 Cluster photo data:', {
-                      clusterMarkersCount: clusterMarkersData.length,
-                      totalPhotos: allPhotos.length,
-                      samplePhoto: allPhotos[0]
-                    });
+                  console.log('📍 Cluster photo data:', {
+                    clusterMarkersCount: clusterMarkersData.length,
+                    totalPhotos: allPhotos.length,
+                    samplePhoto: allPhotos[0]
+                  });
 
-                    // Take top 4 photos for the grid
-                    const topPhotos = allPhotos.slice(0, 4);
+                  // Take top 4 photos for the grid
+                  const topPhotos = allPhotos.slice(0, 4);
 
-                    const combinedMarker = {
-                      ...clusterMarkersData[0],
-                      id: `cluster-${cluster._leaflet_id}`, // Unique ID for cluster popup
-                      tripName: clusterMarkersData[0].tripName || 'Trip',
-                      photoCount: allPhotos.length,
-                      photos: topPhotos,
-                      placeName: locationName,
-                      startDate: clusterMarkersData
-                        .map((marker: TripMarker) => marker.startDate)
-                        .filter(Boolean)
-                        .sort()[0],
-                      endDate: clusterMarkersData
-                        .map((marker: TripMarker) => marker.endDate)
-                        .filter(Boolean)
-                        .sort()
-                        .reverse()[0]
-                    };
-                    root.render(
-                      <PhotoGridPopup
-                        marker={combinedMarker}
-                        onPhotoClick={(photoId) => {
-                          onMarkerClick?.(photoId);
-                          popup.close();
-                        }}
-                      />
-                    );
-                  } else {
-                    root.render(
-                      <ClusteredTripsPopup
-                        markers={clusterMarkersData}
-                        locationName={locationName}
-                        onTripClick={(id) => {
-                          onMarkerClick?.(id);
-                          popup.close();
-                        }}
-                      />
-                    );
-                  }
+                  const combinedMarker = {
+                    ...clusterMarkersData[0],
+                    id: `cluster-${cluster._leaflet_id}`, // Unique ID for cluster popup
+                    tripName: clusterMarkersData[0].tripName || 'Trip',
+                    photoCount: allPhotos.length,
+                    photos: topPhotos,
+                    placeName: locationName,
+                    startDate: clusterMarkersData
+                      .map((marker: TripMarker) => marker.startDate)
+                      .filter(Boolean)
+                      .sort()[0],
+                    endDate: clusterMarkersData
+                      .map((marker: TripMarker) => marker.endDate)
+                      .filter(Boolean)
+                      .sort()
+                      .reverse()[0]
+                  };
+                  root.render(
+                    <PhotoGridPopup
+                      marker={combinedMarker}
+                      onPhotoClick={(photoId) => {
+                        onMarkerClick?.(photoId);
+                        popup.close();
+                      }}
+                    />
+                  );
+                } else {
+                  root.render(
+                    <ClusteredTripsPopup
+                      markers={clusterMarkersData}
+                      locationName={locationName}
+                      onTripClick={(id) => {
+                        onMarkerClick?.(id);
+                        popup.close();
+                      }}
+                    />
+                  );
                 }
-              }, 10);
-            }
+              }
+            }, 10);
           }
         }
       };
@@ -285,9 +284,6 @@ export default function LeafletEngine({
           zoomToBoundsOnClick={false}
           spiderfyOnMaxZoom={true}
           maxClusterRadius={40}
-          spiderfyDistanceMultiplier={1.5}
-          animate={true}
-          animateAddingMarkers={true}
           iconCreateFunction={(cluster: any) => {
             const count = cluster.getChildCount();
             const childMarkers = cluster.getAllChildMarkers();
