@@ -61,7 +61,10 @@ export class GooglePhotosClient {
       });
 
       if (!response.ok) {
-        console.error('❌ Token validation failed:', data);
+        console.error('❌ Token validation failed (tokeninfo API):', data);
+        if (data.error_description === 'Invalid Value' || data.error === 'invalid_token') {
+          console.error('The token is invalid. This usually means it was revoked or malformed.');
+        }
         return false;
       }
 
@@ -73,41 +76,32 @@ export class GooglePhotosClient {
 
       const tokenScopes = data.scope || '';
       console.log('🔑 Token scopes:', tokenScopes);
-      console.log('🎯 Required scopes:', requiredScopes);
-
+      
       // Check if the token is expired
-      const expiresIn = data.expires_in;
-      if (expiresIn && expiresIn < 60) {
+      const expiresIn = parseInt(data.expires_in || '0', 10);
+      if (expiresIn && expiresIn < 30) {
         console.error('❌ Token is expired or about to expire:', expiresIn, 'seconds');
         return false;
       }
 
-      // Check that ALL required scopes are present
-      const hasAllRequiredScopes = requiredScopes.every(scope => tokenScopes.includes(scope));
-
+      // Check that at least the readonly scope is present
+      const hasReadonly = tokenScopes.includes('https://www.googleapis.com/auth/photoslibrary.readonly');
+      const hasFullAccess = tokenScopes.includes('https://www.googleapis.com/auth/photoslibrary');
+      
       console.log('✅ Scope check result:', {
-        hasAllRequiredScopes,
-        hasReadonly: tokenScopes.includes('https://www.googleapis.com/auth/photoslibrary.readonly'),
-        hasFullAccess: tokenScopes.includes('https://www.googleapis.com/auth/photoslibrary'),
-        missingScopes: requiredScopes.filter(scope => !tokenScopes.includes(scope)),
+        hasReadonly,
+        hasFullAccess,
         expiresIn
       });
 
-      if (!hasAllRequiredScopes) {
-        const missingScopes = requiredScopes.filter(scope => !tokenScopes.includes(scope));
-        console.error('❌ Token missing required scopes:', {
-          missingScopes,
-          grantedScopes: tokenScopes
-        });
-        throw new Error(
-          `Insufficient permissions. Missing scopes: ${missingScopes.join(', ')}. ` +
-          'Please re-authorize with all required permissions.'
-        );
+      if (!hasReadonly && !hasFullAccess) {
+        console.error('❌ Token missing required Photos scopes');
+        return false;
       }
 
-      // Make a test API call to verify the token actually works
-      console.log('🧪 Making test API call to verify token...');
-      const testResponse = await fetch('https://photoslibrary.googleapis.com/v1/mediaItems:search?pageSize=1', {
+      // Make a test API call to verify the token actually works for the Photos Library API
+      console.log('🧪 Making test API call to verify Photos Library API access...');
+      const testResponse = await fetch('https://photoslibrary.googleapis.com/v1/mediaItems:search', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.accessToken}`,
@@ -118,13 +112,19 @@ export class GooglePhotosClient {
 
       if (!testResponse.ok) {
         const testError = await testResponse.json();
-        console.error('❌ Test API call failed:', testError);
-        console.error('This means the token is invalid despite passing validation');
+        console.error('❌ Photos API test call failed:', testError);
+        
+        if (testResponse.status === 403) {
+          console.error('This is usually a Scope issue or the Photos Library API is not enabled in Google Cloud Console.');
+        } else if (testResponse.status === 401) {
+          console.error('The token is expired or invalid for this specific API.');
+        }
+        
         return false;
       }
 
       console.log('✅ Test API call successful - token is valid');
-      return hasAllRequiredScopes;
+      return true;
     } catch (error) {
       console.error('❌ Token validation error:', error);
       return false;

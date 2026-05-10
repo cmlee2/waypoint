@@ -302,7 +302,10 @@ export default function LeafletEngine({
               position={[marker.lat, marker.lng]}
               icon={createMarkerIcon(marker.placeName)}
               eventHandlers={{
-                click: () => onMarkerClick?.(marker.id),
+                click: (e: any) => {
+                  e.target.openPopup();
+                  onMarkerClick?.(marker.id);
+                },
               }}
             >
               <Popup className="travel-popup" autoClose={false}>

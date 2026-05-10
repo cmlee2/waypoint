@@ -67,12 +67,13 @@ export function hasScope(grantedScopes: string[], scope: GoogleScope): boolean {
 export function getScopeTroubleshootingSteps(): string[] {
   return [
     '1. Go to Google Cloud Console (https://console.cloud.google.com/)',
-    '2. Navigate to APIs & Services → OAuth consent screen',
-    '3. Add these scopes to your consent screen:',
+    '2. Ensure "Photos Library API" is enabled for your project',
+    '3. Navigate to APIs & Services → OAuth consent screen',
+    '4. Add these scopes to your consent screen:',
     '   - https://www.googleapis.com/auth/photoslibrary.readonly',
     '   - https://www.googleapis.com/auth/photoslibrary',
-    '4. Clear your browser cookies for accounts.google.com',
-    '5. Try authorizing again',
+    '5. Clear your browser cookies for accounts.google.com',
+    '6. Try authorizing again',
   ];
 }
 

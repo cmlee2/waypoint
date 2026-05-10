@@ -18,17 +18,21 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const searchParams = request.nextUrl.searchParams;
+  const forceRefresh = searchParams.get('forceRefresh') === 'true';
+
   let accessToken = request.cookies.get('google_access_token')?.value;
   const refreshToken = request.cookies.get('google_refresh_token')?.value;
 
   console.log('🔍 Token Request:', {
     hasAccessToken: !!accessToken,
-    hasRefreshToken: !!refreshToken
+    hasRefreshToken: !!refreshToken,
+    forceRefresh
   });
 
-  // If access token is missing but refresh token exists, try to refresh it
-  if (!accessToken && refreshToken) {
-    console.log('🔄 Access token missing, attempting refresh with refresh token...');
+  // If access token is missing OR we are forcing a refresh, and refresh token exists, try to refresh it
+  if ((!accessToken || forceRefresh) && refreshToken) {
+    console.log(`🔄 ${forceRefresh ? 'Forcing refresh' : 'Access token missing'}, attempting renewal...`);
     const newAccessToken = await refreshGoogleAccessToken(refreshToken);
     if (newAccessToken) {
       accessToken = newAccessToken;

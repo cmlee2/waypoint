@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
     authUrl.searchParams.append('state', state);
     authUrl.searchParams.append('access_type', 'offline');
     authUrl.searchParams.append('prompt', 'consent');
+    authUrl.searchParams.append('include_granted_scopes', 'true');
 
     console.log('🔑 OAuth Request Details:', {
       scope: GOOGLE_PHOTOS_SCOPE,

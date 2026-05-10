@@ -52,18 +52,19 @@ export default function PhotoUploader({
   const [placeOptions, setPlaceOptions] = useState<Array<{ name: string; type: string; displayName: string; address?: string }>>([]);
   const [isLookingUpPlaces, setIsLookingUpPlaces] = useState(false);
 
-  const fetchGoogleToken = useCallback(async () => {
+  const fetchGoogleToken = useCallback(async (forceRefresh: boolean = false) => {
     try {
-      const response = await fetch('/api/google/token');
+      const url = `/api/google/token${forceRefresh ? '?forceRefresh=true' : ''}`;
+      const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
-        console.log('Google Photos token found/refreshed:', data.access_token.substring(0, 20) + '...');
+        console.log(`Google Photos token ${forceRefresh ? 'renewed' : 'found'}:`, data.access_token.substring(0, 20) + '...');
         setGoogleAccessToken(data.access_token);
         return data.access_token;
       }
       return null;
     } catch (error) {
-      console.error('Failed to fetch Google token:', error);
+      console.error('Failed to fetch/refresh Google token:', error);
       return null;
     }
   }, []);
@@ -72,14 +73,18 @@ export default function PhotoUploader({
   useEffect(() => {
     if (hasCheckedForToken) return;
 
-    fetchGoogleToken().finally(() => {
+    const initToken = async () => {
+      const token = await fetchGoogleToken();
       setHasCheckedForToken(true);
       // Only auto-open if we found a token
-      if (googleAccessToken) {
+      if (token) {
+        console.log('✅ Token found on mount, auto-opening picker');
         setGooglePhotosOpen(true);
       }
-    });
-  }, [hasCheckedForToken, fetchGoogleToken, googleAccessToken]);
+    };
+
+    initToken();
+  }, [hasCheckedForToken, fetchGoogleToken]);
 
   const extractMetadata = useCallback(async (file: File) => {
     console.log(`📸 Extracting metadata from ${file.name} (${formatFileSize(file.size)})...`);

@@ -41,10 +41,31 @@ body {
 }
 
 .leaflet-popup-close-button {
-  top: 10px !important;
-  right: 10px !important;
-  color: #a8a29e !important; /* stone-400 */
+  top: 8px !important;
+  right: 8px !important;
+  width: 32px !important;
+  height: 32px !important;
+  padding: 0 !important;
+  color: #78716c !important; /* stone-500 - darker for better visibility */
+  font-size: 24px !important;
+  font-weight: bold !important;
   z-index: 1010 !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-radius: 50% !important;
+  border: 2px solid #e7e5e4 !important; /* stone-200 */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+  transition: all 0.2s ease !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.leaflet-popup-close-button:hover {
+  color: #dc2626 !important; /* red-600 on hover */
+  background: white !important;
+  border-color: #dc2626 !important;
+  transform: scale(1.1) !important;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25) !important;
 }
 
 /* Custom Marker Styles */

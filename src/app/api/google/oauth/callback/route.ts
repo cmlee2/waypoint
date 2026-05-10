@@ -103,12 +103,17 @@ export async function GET(request: NextRequest) {
     }
 
     const tokenData = await tokenResponse.json();
-    console.log('✅ Token received:', {
+    console.log('✅ Token response from Google:', {
       hasAccessToken: !!tokenData.access_token,
       hasRefreshToken: !!tokenData.refresh_token,
       expiresIn: tokenData.expires_in,
-      scope: tokenData.scope
+      scope: tokenData.scope,
+      tokenType: tokenData.token_type
     });
+
+    if (!tokenData.refresh_token) {
+      console.warn('⚠️ No refresh token received! This happens if user has already authorized and prompt=consent was not used or didn\'t work.');
+    }
 
     // Verify that all required scopes were granted
     const requiredScopes = [
