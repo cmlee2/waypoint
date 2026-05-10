@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { MapMarker } from '@/types/map';
-import { MapPin, Calendar, Eye } from 'lucide-react';
+import { MapPin, Calendar } from 'lucide-react';
 
 interface ClusteredTripsPopupProps {
   markers: MapMarker[];
@@ -46,9 +46,9 @@ export default function ClusteredTripsPopup({
     return formatDate(startDate || endDate);
   };
 
-    const isIndividualMemories = markers.every(m => !m.tripName);
-    const unitLabel = isIndividualMemories ? (markers.length === 1 ? 'memory' : 'memories') : (markers.length === 1 ? 'trip' : 'trips');
-    const buttonText = isIndividualMemories ? 'View in Timeline' : 'See Details';
+  const isIndividualMemories = markers.every(m => !m.tripName || m.tripName === 'Trip');
+  const unitLabel = isIndividualMemories ? (markers.length === 1 ? 'memory' : 'memories') : (markers.length === 1 ? 'trip' : 'trips');
+  const buttonText = isIndividualMemories ? 'View in Timeline' : 'See Details';
 
   return (
     <div className="p-4 min-w-[320px] max-w-[380px] bg-white rounded-xl shadow-xl border border-stone-100">
@@ -70,11 +70,23 @@ export default function ClusteredTripsPopup({
         {markers.map((marker) => (
           <div
             key={marker.id}
-            className="p-3 bg-stone-50 rounded-lg border border-stone-100 hover:border-stone-200 hover:shadow-sm transition-all"
+            className="p-3 bg-stone-50 rounded-lg border border-stone-100 hover:border-stone-200 hover:shadow-sm transition-all cursor-pointer"
+            onClick={() => onTripClick?.(marker.id)}
           >
+            {/* Photo Preview */}
+            {marker.photos && marker.photos.length > 0 && (
+              <div className="aspect-video mb-2 rounded-lg overflow-hidden bg-stone-100">
+                <img
+                  src={marker.photos[0].storage_url}
+                  alt={marker.photos[0].caption || marker.label || 'Memory'}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+
             {/* Trip Name */}
             <h3 className="font-bold text-stone-900 text-base mb-1.5">
-              {marker.tripName || marker.label || 'Trip'}
+              {marker.tripName || marker.label || 'Memory'}
             </h3>
 
             <div className="space-y-1.5 mb-3">
@@ -98,18 +110,6 @@ export default function ClusteredTripsPopup({
                 )}
               </div>
             </div>
-
-            {/* See Details Button */}
-            <button
-              type="button"
-              onClick={() => {
-                onTripClick?.(marker.id);
-              }}
-              className="w-full bg-stone-900 hover:bg-stone-800 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all shadow-sm flex items-center justify-center gap-2"
-            >
-              <Eye size={14} />
-              {buttonText}
-            </button>
           </div>
         ))}
       </div>

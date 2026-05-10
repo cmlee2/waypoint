@@ -172,57 +172,17 @@ export default function LeafletEngine({
               const container = document.getElementById(containerId);
               if (container) {
                 const root = ReactDOM.createRoot(container);
-                if (isSingleTrip) {
-                  // Collect all photos from the cluster markers
-                  const allPhotos = clusterMarkersData.flatMap((marker: TripMarker) => marker.photos || []);
-
-                  console.log('📍 Cluster photo data:', {
-                    clusterMarkersCount: clusterMarkersData.length,
-                    totalPhotos: allPhotos.length,
-                    samplePhoto: allPhotos[0]
-                  });
-
-                  // Take top 4 photos for the grid
-                  const topPhotos = allPhotos.slice(0, 4);
-
-                  const combinedMarker = {
-                    ...clusterMarkersData[0],
-                    id: `cluster-${cluster._leaflet_id}`, // Unique ID for cluster popup
-                    tripName: clusterMarkersData[0].tripName || 'Trip',
-                    photoCount: allPhotos.length,
-                    photos: topPhotos,
-                    placeName: locationName,
-                    startDate: clusterMarkersData
-                      .map((marker: TripMarker) => marker.startDate)
-                      .filter(Boolean)
-                      .sort()[0],
-                    endDate: clusterMarkersData
-                      .map((marker: TripMarker) => marker.endDate)
-                      .filter(Boolean)
-                      .sort()
-                      .reverse()[0]
-                  };
-                  root.render(
-                    <PhotoGridPopup
-                      marker={combinedMarker}
-                      onPhotoClick={(photoId) => {
-                        onMarkerClick?.(photoId);
-                        popup.close();
-                      }}
-                    />
-                  );
-                } else {
-                  root.render(
-                    <ClusteredTripsPopup
-                      markers={clusterMarkersData}
-                      locationName={locationName}
-                      onTripClick={(id) => {
-                        onMarkerClick?.(id);
-                        popup.close();
-                      }}
-                    />
-                  );
-                }
+                // Always show individual events as distinct items
+                root.render(
+                  <ClusteredTripsPopup
+                    markers={clusterMarkersData}
+                    locationName={locationName}
+                    onTripClick={(id) => {
+                      onMarkerClick?.(id);
+                      popup.close();
+                    }}
+                  />
+                );
               }
             }, 10);
           }

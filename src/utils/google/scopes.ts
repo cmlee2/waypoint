@@ -65,10 +65,10 @@ export function getScopeTroubleshootingSteps(): string[] {
   return [
     '1. IMPORTANT: Re-authorize with Google Photos Picker access. The old Google Photos Library read scopes are no longer sufficient for browsing the full library.',
     '2. Go to Google Cloud Console (https://console.cloud.google.com/)',
-    '3. Ensure "Google Photos Picker API" is ENABLED in the Library section',
+    '3. Ensure "Google Photos Picker API" is ENABLED in the Library section (NOT the Photos Library API)',
     '4. Navigate to "APIs & Services" → "OAuth consent screen"',
     '5. Click "Edit App" and in the "Scopes" step, manually ADD this one:',
-    '   - .../auth/photospicker.mediaitems.readonly',
+    '   - https://www.googleapis.com/auth/photospicker.mediaitems.readonly',
     '6. In the "Test users" section, ensure your current email is added',
     '7. If you still have issues, try clearing your browser cache and re-authorizing.',
   ];

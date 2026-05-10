@@ -253,9 +253,12 @@ export default function GooglePhotosPicker({
   useEffect(() => {
     if (!isOpen || !accessToken) return;
 
-    createRetryRef.current = false;
-    resetState();
-    void createSession();
+    // Only reset state if this is a fresh open (no session or error)
+    if (!session && !error) {
+      createRetryRef.current = false;
+      resetState();
+      void createSession();
+    }
 
     return () => {
       clearPollTimer();
@@ -266,7 +269,7 @@ export default function GooglePhotosPicker({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, accessToken]);
+  }, [isOpen]);
 
   useEffect(() => {
     return () => clearPollTimer();
