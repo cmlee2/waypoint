@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, Loader2, Check, Image as ImageIcon, RefreshCw, AlertCircle } from 'lucide-react';
 import { GooglePhoto, createGooglePhotosClient } from '@/utils/google/photos';
-import { formatScopeErrorMessage, getScopeTroubleshootingSteps } from '@/utils/google/scopes';
+import { getScopeTroubleshootingSteps } from '@/utils/google/scopes';
 
 interface GooglePhotosPickerProps {
   isOpen: boolean;
@@ -119,12 +119,15 @@ export default function GooglePhotosPicker({
       const errorMessage = err instanceof Error ? err.message : 'Failed to load photos';
       setError(errorMessage);
 
-      // Only mark as scope error if the message explicitly mentions permissions/scopes
-      if (errorMessage.toLowerCase().includes('scope') || 
-          errorMessage.toLowerCase().includes('permission') ||
-          errorMessage.toLowerCase().includes('access denied')) {
-        setIsScopeError(true);
-      }
+      const normalizedError = errorMessage.toLowerCase();
+      const isAuthOrPermissionError =
+        normalizedError.includes('access denied') ||
+        normalizedError.includes('permission') ||
+        normalizedError.includes('scope') ||
+        normalizedError.includes('unauthorized') ||
+        normalizedError.includes('re-authorize');
+
+      setIsScopeError(isAuthOrPermissionError);
     } finally {
       setIsLoading(false);
       setIsLoadingMore(false);
@@ -222,6 +225,9 @@ export default function GooglePhotosPicker({
                               ))}
                               {debugInfo.grantedScopes.length === 0 && <li>NONE (Did you check the box?)</li>}
                             </ul>
+                            <p className="mt-3 text-red-500">
+                              The error above is the real Google response. If scopes are present here, the issue is usually API enablement, test-user access, or a revoked session.
+                            </p>
                           </div>
                         )}
                       </div>

@@ -68,12 +68,6 @@ export class GooglePhotosClient {
         return false;
       }
 
-      // Check if the token has at least one required scope
-      const requiredScopes = [
-        'https://www.googleapis.com/auth/photoslibrary.readonly',
-        'https://www.googleapis.com/auth/photoslibrary'
-      ];
-
       const tokenScopes = data.scope || '';
       console.log('🔑 Token scopes:', tokenScopes);
       
@@ -147,7 +141,7 @@ export class GooglePhotosClient {
         } else if (message.includes('permission')) {
           throw new Error('Access Denied (403): Your account doesn\'t have permission. Ensure you added your email as a "Test User" in the OAuth Consent Screen settings.');
         } else {
-          throw new Error(`Access Denied (403): ${message}. Your token has the required scopes, but Google is still denying the request. Try clicking "Clear Session & Logout" below and then re-authorize.`);
+          throw new Error(`Access Denied (403): ${message || 'Google denied access to Google Photos.'} This is usually a Google Photos API enablement, OAuth consent, or revoked-session problem, not a missing-scope problem. Try "Clear Session & Logout" and re-authorize.`);
         }
       }
 
