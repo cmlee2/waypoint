@@ -3,8 +3,8 @@ import { auth } from '@clerk/nextjs/server';
 import { refreshGoogleAccessToken } from '@/utils/google/auth';
 
 async function getAccessToken(request: NextRequest): Promise<string | null> {
-  let accessToken = request.cookies.get('google_access_token')?.value;
-  const refreshToken = request.cookies.get('google_refresh_token')?.value;
+  let accessToken: string | null = request.cookies.get('google_access_token')?.value ?? null;
+  const refreshToken = request.cookies.get('google_refresh_token')?.value ?? null;
 
   if (!accessToken && refreshToken) {
     accessToken = await refreshGoogleAccessToken(refreshToken);
