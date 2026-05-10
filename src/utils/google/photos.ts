@@ -114,23 +114,23 @@ export class GooglePhotosClient {
    * @param pageToken Token for pagination
    */
   async listPhotos(pageSize: number = 50, pageToken?: string): Promise<GooglePhotosListResponse> {
-    const url = new URL('https://photoslibrary.googleapis.com/v1/mediaItems:search');
+    // Switch to mediaItems.list (GET) which is more standard for simple listing
+    const url = new URL('https://photoslibrary.googleapis.com/v1/mediaItems');
+    url.searchParams.append('pageSize', String(pageSize));
+    if (pageToken) {
+      url.searchParams.append('pageToken', pageToken);
+    }
     
-    console.log('Google Photos API Request (POST):', {
+    console.log('Google Photos API Request (GET):', {
       url: url.toString(),
       hasAccessToken: !!this.accessToken
     });
 
     const response = await fetch(url.toString(), {
-      method: 'POST',
+      method: 'GET',
       headers: {
         'Authorization': `Bearer ${this.accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        pageSize,
-        pageToken,
-      }),
+      }
     });
 
     if (!response.ok) {
@@ -144,7 +144,7 @@ export class GooglePhotosClient {
         } else if (message.includes('permission')) {
           throw new Error('Access Denied (403): Your account doesn\'t have permission. Ensure you added your email as a "Test User" in the OAuth Consent Screen settings.');
         } else {
-          throw new Error(`Access Denied (403): ${message}. Please ensure you've added the required scopes to your "OAuth Consent Screen" configuration in Google Console.`);
+          throw new Error(`Access Denied (403): ${message}. Your token has the required scopes, but Google is still denying the request. Try clicking "Clear Session & Logout" below and then re-authorize.`);
         }
       }
 

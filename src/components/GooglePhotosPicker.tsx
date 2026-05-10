@@ -330,17 +330,28 @@ export default function GooglePhotosPicker({
           </div>
           <div className="flex gap-3">
             {isScopeError && (
-              <button
-                type="button"
-                onClick={() => {
-                  // Trigger re-authorization by redirecting to OAuth
-                  window.location.href = '/api/google/oauth?action=authorize&returnUrl=/trips/new';
-                }}
-                className="rounded-xl border border-red-300 bg-red-50 px-6 py-2 font-medium text-red-700 transition-colors hover:bg-red-100 flex items-center gap-2"
-              >
-                <RefreshCw size={16} />
-                Re-authorize
-              </button>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.location.href = '/api/google/oauth?action=authorize&returnUrl=/trips/new';
+                  }}
+                  className="rounded-xl border border-red-300 bg-red-50 px-6 py-2 font-medium text-red-700 transition-colors hover:bg-red-100 flex items-center gap-2"
+                >
+                  <RefreshCw size={16} />
+                  Re-authorize
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await fetch('/api/google/token', { method: 'DELETE' });
+                    window.location.reload();
+                  }}
+                  className="rounded-xl border border-stone-300 bg-white px-6 py-2 font-medium text-stone-600 transition-colors hover:bg-stone-100"
+                >
+                  Clear Session & Logout
+                </button>
+              </div>
             )}
             <button
               type="button"
