@@ -57,7 +57,11 @@ export default function GooglePhotosPicker({
     }
 
     try {
-      // Validate token first and capture debug info
+      setIsLoading(true);
+      setError(null);
+      setIsScopeError(false);
+
+      // 1. Get initial debug info
       const response = await fetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${accessToken}`);
       const data = await response.json();
       setDebugInfo({
@@ -68,17 +72,19 @@ export default function GooglePhotosPicker({
 
       console.log('🔑 Validating Google Photos token...');
       let isTokenValid = await client.validateToken();
+      let activeClient = client;
 
+      // 2. If invalid, attempt ONE refresh
       if (!isTokenValid && onTokenExpired) {
         console.log('🔄 Token invalid, attempting forced refresh via callback...');
         const newToken = await onTokenExpired(true);
         if (newToken) {
-          console.log('✅ Token refreshed, retrying validation...');
+          console.log('✅ Token refreshed, creating new client...');
           const { client: newClient } = createGooglePhotosClient(newToken);
           isTokenValid = await newClient.validateToken();
-          
           if (isTokenValid) {
-            // Update debug info with new token
+            activeClient = newClient; // USE THE NEW CLIENT
+            // Update debug info
             const freshResponse = await fetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${newToken}`);
             const freshData = await freshResponse.json();
             setDebugInfo({
@@ -91,48 +97,33 @@ export default function GooglePhotosPicker({
       }
 
       if (!isTokenValid) {
-        console.error('❌ Token validation failed after refresh attempt');
-        console.error('This usually means the token is expired or invalid');
-        console.error('Please try re-authorizing with Google Photos');
-
-        const errorMessage = 'Authentication failed. The access token is expired or invalid. Please try re-authorizing with Google Photos.';
-        setError(errorMessage);
-        setIsScopeError(true);
-        throw new Error(errorMessage);
+        throw new Error('Authentication failed. The access token is expired or invalid. Please try re-authorizing.');
       }
 
-      console.log('✅ Token validated successfully, loading photos...');
+      // 3. Make the actual API call using the ACTIVE client
+      console.log('✅ Token valid, listing photos...');
       const result = await rateLimiter.execute(() =>
-        client.listPhotos(50, pageToken)
+        activeClient.listPhotos(50, pageToken)
       );
 
       console.log(`📸 Loaded ${result.photos.length} photos`);
-      if (result.nextPageToken) {
-        console.log('📄 Has more pages available');
-      }
-
       if (pageToken) {
         setPhotos(prev => [...prev, ...result.photos]);
       } else {
         setPhotos(result.photos);
       }
-
       setNextPageToken(result.nextPageToken);
+
     } catch (err) {
       console.error('❌ Failed to load photos:', err);
-
       const errorMessage = err instanceof Error ? err.message : 'Failed to load photos';
+      setError(errorMessage);
 
-      // Check if it's a scope-related error
-      if (errorMessage.includes('Insufficient permissions') ||
-          errorMessage.includes('Missing scopes') ||
-          errorMessage.includes('scope')) {
-        console.error('❌ Scope-related error detected');
-        setError(formatScopeErrorMessage(['photoslibrary.readonly']));
+      // Only mark as scope error if the message explicitly mentions permissions/scopes
+      if (errorMessage.toLowerCase().includes('scope') || 
+          errorMessage.toLowerCase().includes('permission') ||
+          errorMessage.toLowerCase().includes('access denied')) {
         setIsScopeError(true);
-      } else {
-        setError(errorMessage);
-        setIsScopeError(false);
       }
     } finally {
       setIsLoading(false);
@@ -356,6 +347,16 @@ export default function GooglePhotosPicker({
                   Clear Session & Logout
                 </button>
               </div>
+            )}
+            {error && !isScopeError && (
+              <button
+                type="button"
+                onClick={() => loadPhotos()}
+                className="rounded-xl border border-stone-300 bg-white px-6 py-2 font-medium text-stone-700 transition-colors hover:bg-stone-50 flex items-center gap-2"
+              >
+                <RefreshCw size={16} />
+                Retry Loading
+              </button>
             )}
             <button
               type="button"
