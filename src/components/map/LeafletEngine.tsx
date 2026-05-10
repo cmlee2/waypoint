@@ -66,6 +66,7 @@ export default function LeafletEngine({
   zoom,
   markers,
   onMarkerClick,
+  onMapReady,
   className
 }: TripMapProps) {
   const [L, setL] = useState<any>(null);
@@ -77,6 +78,34 @@ export default function LeafletEngine({
       setL(mod.default);
     });
   }, []);
+
+  // Handle map resize when container changes
+  useEffect(() => {
+    if (mapInstance) {
+      // Invalidate size after a short delay to ensure container has final dimensions
+      const timer = setTimeout(() => {
+        mapInstance.invalidateSize();
+        console.log('🗺️ Map size invalidated for proper centering');
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }
+  }, [mapInstance]);
+
+  // Add resize observer to handle container size changes
+  useEffect(() => {
+    if (mapInstance && mapInstance._container) {
+      const resizeObserver = new ResizeObserver(() => {
+        mapInstance.invalidateSize();
+      });
+
+      resizeObserver.observe(mapInstance._container);
+
+      return () => {
+        resizeObserver.disconnect();
+      };
+    }
+  }, [mapInstance]);
 
   const getLocationNameFromCluster = useCallback((clusterMarkers: any[]): string => {
     if (clusterMarkers.length === 0) return 'Trip Spot';
@@ -130,13 +159,34 @@ export default function LeafletEngine({
                 if (container) {
                   const root = ReactDOM.createRoot(container);
                   if (isSingleTrip) {
+                    // Collect all photos from the cluster markers
+                    const allPhotos = clusterMarkersData.flatMap((marker: TripMarker) => marker.photos || []);
+
+                    console.log('📍 Cluster photo data:', {
+                      clusterMarkersCount: clusterMarkersData.length,
+                      totalPhotos: allPhotos.length,
+                      samplePhoto: allPhotos[0]
+                    });
+
+                    // Take top 4 photos for the grid
+                    const topPhotos = allPhotos.slice(0, 4);
+
                     const combinedMarker = {
                       ...clusterMarkersData[0],
-                      photoCount: clusterMarkersData.length,
-                      photos: clusterMarkersData.flatMap((marker: TripMarker) => marker.photos || []),
+                      id: `cluster-${cluster._leaflet_id}`, // Unique ID for cluster popup
+                      tripName: clusterMarkersData[0].tripName || 'Trip',
+                      photoCount: allPhotos.length,
+                      photos: topPhotos,
                       placeName: locationName,
-                      startDate: clusterMarkersData.map((marker: TripMarker) => marker.startDate).filter(Boolean).sort()[0],
-                      endDate: clusterMarkersData.map((marker: TripMarker) => marker.endDate).filter(Boolean).sort().reverse()[0]
+                      startDate: clusterMarkersData
+                        .map((marker: TripMarker) => marker.startDate)
+                        .filter(Boolean)
+                        .sort()[0],
+                      endDate: clusterMarkersData
+                        .map((marker: TripMarker) => marker.endDate)
+                        .filter(Boolean)
+                        .sort()
+                        .reverse()[0]
                     };
                     root.render(<PhotoGridPopup marker={combinedMarker} />);
                   } else {
@@ -160,7 +210,7 @@ export default function LeafletEngine({
 
       clusterGroup.on('clusterclick', handleClusterClick);
     }
-  }, [L, mapInstance, markers, onMarkerClick, getLocationNameFromCluster]);
+  }, [L, mapInstance, markers, onMarkerClick, onMapReady, getLocationNameFromCluster]);
 
   if (!L) return (
     <div className={`${className} bg-stone-50 rounded-xl flex items-center justify-center min-h-[400px] border-2 border-stone-200`}>
@@ -196,7 +246,12 @@ export default function LeafletEngine({
         zoomControl={false}
         className="w-full h-full"
         ref={(map) => {
-          if (map && !mapInstance) setMapInstance(map);
+          if (map && !mapInstance) {
+            setMapInstance(map);
+            console.log('🗺️ Map instance created');
+            // Call onMapReady callback when map is ready
+            onMapReady?.();
+          }
         }}
       >
         <TileLayer url={TILE_LAYER_URL} attribution={ATTRIBUTION} />

@@ -109,8 +109,6 @@ export default function PhotoGridPopup({ marker, onSeeDetails }: PhotoGridPopupP
     );
   };
 
-  const isIndividualMemory = photoCount === 1 || (photos.length === 0 && marker.imageUrl);
-
   return (
     <div className="p-4 min-w-[280px] max-w-[320px] bg-white rounded-xl shadow-xl border border-stone-100">
       {/* Photo Grid */}

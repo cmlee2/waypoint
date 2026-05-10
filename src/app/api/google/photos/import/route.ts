@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@supabase/supabase-js';
 import { GooglePhoto, createGooglePhotosClient } from '@/utils/google/photos';
+import { refreshGoogleAccessToken } from '@/utils/google/auth';
 
 /**
  * Import photos from Google Photos
@@ -16,11 +17,21 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Get access token from secure cookie instead of request body
-    const accessToken = request.cookies.get('google_access_token')?.value;
+    // Get access token from secure cookie
+    let accessToken = request.cookies.get('google_access_token')?.value;
+    const refreshToken = request.cookies.get('google_refresh_token')?.value;
+
+    // If access token is missing but refresh token exists, try to refresh it
+    if (!accessToken && refreshToken) {
+      console.log('🔄 Access token missing during import, attempting refresh...');
+      const newAccessToken = await refreshGoogleAccessToken(refreshToken);
+      if (newAccessToken) {
+        accessToken = newAccessToken;
+      }
+    }
 
     if (!accessToken) {
-      return NextResponse.json({ error: 'No access token found' }, { status: 401 });
+      return NextResponse.json({ error: 'No access token found. Please re-authorize.' }, { status: 401 });
     }
 
     const body = await request.json();

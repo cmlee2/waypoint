@@ -52,28 +52,34 @@ export default function PhotoUploader({
   const [placeOptions, setPlaceOptions] = useState<Array<{ name: string; type: string; displayName: string; address?: string }>>([]);
   const [isLookingUpPlaces, setIsLookingUpPlaces] = useState(false);
 
+  const fetchGoogleToken = useCallback(async () => {
+    try {
+      const response = await fetch('/api/google/token');
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Google Photos token found/refreshed:', data.access_token.substring(0, 20) + '...');
+        setGoogleAccessToken(data.access_token);
+        return data.access_token;
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to fetch Google token:', error);
+      return null;
+    }
+  }, []);
+
   // Fetch Google token from secure cookie on mount (only once)
   useEffect(() => {
     if (hasCheckedForToken) return;
 
-    const fetchToken = async () => {
-      try {
-        const response = await fetch('/api/google/token');
-        if (response.ok) {
-          const data = await response.json();
-          console.log('Google Photos token found in secure cookie:', data.access_token.substring(0, 20) + '...');
-          setGoogleAccessToken(data.access_token);
-          setGooglePhotosOpen(true);
-        }
-      } catch (error) {
-        console.error('Failed to fetch Google token:', error);
-      } finally {
-        setHasCheckedForToken(true);
+    fetchGoogleToken().finally(() => {
+      setHasCheckedForToken(true);
+      // Only auto-open if we found a token
+      if (googleAccessToken) {
+        setGooglePhotosOpen(true);
       }
-    };
-
-    fetchToken();
-  }, [hasCheckedForToken]);
+    });
+  }, [hasCheckedForToken, fetchGoogleToken, googleAccessToken]);
 
   const extractMetadata = useCallback(async (file: File) => {
     console.log(`📸 Extracting metadata from ${file.name} (${formatFileSize(file.size)})...`);
@@ -376,7 +382,15 @@ export default function PhotoUploader({
     }
   };
 
-  const handleGoogleAuth = () => {
+  const handleGoogleAuth = async () => {
+    // Try to get existing token first (might be refreshed automatically)
+    const token = await fetchGoogleToken();
+    
+    if (token) {
+      setGooglePhotosOpen(true);
+      return;
+    }
+
     // Use current page redirect instead of popup to avoid Cross-Origin-Opener-Policy issues
     const returnUrl = window.location.pathname + window.location.search;
     const authUrl = `/api/google/oauth?action=authorize&returnUrl=${encodeURIComponent(returnUrl)}`;
@@ -604,10 +618,9 @@ export default function PhotoUploader({
         isOpen={googlePhotosOpen}
         onClose={() => {
           setGooglePhotosOpen(false);
-          // Clear token after closing picker for security
-          clearGoogleToken();
         }}
         onPhotosSelected={handleGooglePhotosImport}
+        onTokenExpired={fetchGoogleToken}
         accessToken={googleAccessToken || ''}
         maxPhotos={15 - photos.length}
       />

@@ -9,6 +9,7 @@ interface GooglePhotosPickerProps {
   isOpen: boolean;
   onClose: () => void;
   onPhotosSelected: (photos: GooglePhoto[]) => void;
+  onTokenExpired?: () => Promise<string | null>;
   accessToken: string;
   maxPhotos?: number;
 }
@@ -17,6 +18,7 @@ export default function GooglePhotosPicker({
   isOpen,
   onClose,
   onPhotosSelected,
+  onTokenExpired,
   accessToken,
   maxPhotos = 15,
 }: GooglePhotosPickerProps) {
@@ -58,10 +60,25 @@ export default function GooglePhotosPicker({
 
       // Validate token first
       console.log('🔑 Validating Google Photos token...');
-      const isTokenValid = await client.validateToken();
+      let isTokenValid = await client.validateToken();
+
+      if (!isTokenValid && onTokenExpired) {
+        console.log('🔄 Token invalid, attempting refresh via callback...');
+        const newToken = await onTokenExpired();
+        if (newToken) {
+          console.log('✅ Token refreshed, retrying validation...');
+          // Create a new client with the new token
+          const { client: newClient } = createGooglePhotosClient(newToken);
+          isTokenValid = await newClient.validateToken();
+          
+          if (!isTokenValid) {
+            console.error('❌ Refreshed token is also invalid');
+          }
+        }
+      }
 
       if (!isTokenValid) {
-        console.error('❌ Token validation failed');
+        console.error('❌ Token validation failed after refresh attempt');
         console.error('This usually means the token is expired or invalid');
         console.error('Please try re-authorizing with Google Photos');
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import MapDisplay from '@/components/map/MapDisplay';
 import { MapMarker } from '@/types/map';
 import { ArrowLeft, Calendar, Globe, Lock, Share2 } from 'lucide-react';
@@ -10,6 +10,7 @@ import { calculateSmartCentering } from '@/utils/map/smartCentering';
 export default function TripViewClient({ trip, isMine }: { trip: any, isMine: boolean }) {
   const router = useRouter();
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
+  const [mapReady, setMapReady] = useState(false);
 
   // Generate markers from photos that have coordinates
   const markers: MapMarker[] = trip.photos
@@ -21,7 +22,10 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
       label: p.caption || 'Memory',
       imageUrl: p.storage_url,
       placeName: p.place_name,
+      tripName: trip.name,
       photoCount: 1,
+      isPublic: trip.is_public,
+      isMine: isMine,
       photos: [{
         id: p.id,
         storage_url: p.storage_url,
@@ -42,6 +46,14 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
 
   const initialCenter = centeringResult.center;
   const initialZoom = centeringResult.zoom;
+
+  // Recalculate centering when map is ready
+  useEffect(() => {
+    if (mapReady && markers.length > 0) {
+      console.log('🗺️ Map ready, recalculating centering for', markers.length, 'markers');
+      // The map will handle proper centering via invalidateSize in LeafletEngine
+    }
+  }, [mapReady, markers.length]);
 
   const handleShare = async () => {
     try {
@@ -170,6 +182,7 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
           zoom={initialZoom}
           markers={markers}
           onMarkerClick={setSelectedPhotoId}
+          onMapReady={() => setMapReady(true)}
           className="w-full h-full"
         />
         <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_100px_rgba(0,0,0,0.05)]" />
