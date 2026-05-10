@@ -1,3 +1,5 @@
+import exifr from 'exifr';
+
 export interface GooglePhoto {
   id: string;
   baseUrl: string;
@@ -165,9 +167,6 @@ export class GooglePhotosClient {
       }
 
       // Success! We have a valid token with correct scopes.
-      // Note: We skip the test API call during basic validation to prevent 403 loops.
-      // The API calls themselves (listPhotos) will handle 403s if the API is disabled.
-      
       console.log('✅ Token validation successful (scopes & expiration)');
       return {
         valid: true,
@@ -186,7 +185,6 @@ export class GooglePhotosClient {
    * @param pageToken Token for pagination
    */
   async listPhotos(pageSize: number = 50, pageToken?: string): Promise<GooglePhotosListResponse> {
-    // Switch to mediaItems.list (GET) which is more standard for simple listing
     const url = new URL('https://photoslibrary.googleapis.com/v1/mediaItems');
     url.searchParams.append('pageSize', String(pageSize));
     if (pageToken) {
@@ -446,6 +444,7 @@ export class GooglePhotosClient {
 
   /**
    * Converts a Google Photo to a format compatible with the upload pipeline
+   * Attempts to extract GPS data from the actual image bytes (EXIF) since the API strips it
    */
   async convertToUploadFormat(photo: GooglePhoto): Promise<{
     file: Blob;
@@ -454,16 +453,47 @@ export class GooglePhotosClient {
     takenAt?: Date;
     filename: string;
   }> {
-    const blob = await this.downloadPhoto(photo, 1600, 1600); // Compress to max 1600x1600
-    const { lat, lng } = this.extractGPS(photo);
-    const takenAt = this.extractCreationDate(photo);
+    // We must download the original bytes (=d) or a high-res version to ensure EXIF is preserved
+    // Google often strips EXIF from resized thumbnails, so we get a large version
+    const blob = await this.downloadPhoto(photo, 1600, 1600);
+    const filename = photo.filename;
+
+    let lat: number | undefined;
+    let lng: number | undefined;
+    let takenAt = this.extractCreationDate(photo);
+
+    try {
+      console.log(`🔍 Scanning image bytes for EXIF data: ${filename}...`);
+      // Use exifr to parse the downloaded blob
+      const exif = await exifr.parse(blob, {
+        gps: true,
+        timestamp: true
+      });
+
+      if (exif) {
+        if (typeof exif.latitude === 'number' && typeof exif.longitude === 'number') {
+          lat = exif.latitude;
+          lng = exif.longitude;
+          console.log(`📍 Found EXIF GPS for ${filename}: ${lat}, ${lng}`);
+        }
+
+        if (exif.DateTimeOriginal instanceof Date) {
+          takenAt = exif.DateTimeOriginal;
+          console.log(`📅 Found EXIF Date for ${filename}: ${takenAt.toISOString()}`);
+        }
+      } else {
+        console.log(`ℹ️ No EXIF data found in image bytes for ${filename}`);
+      }
+    } catch (exifError) {
+      console.warn(`⚠️ EXIF extraction failed for ${filename}:`, exifError);
+    }
 
     return {
       file: blob,
       lat,
       lng,
       takenAt,
-      filename: photo.filename,
+      filename,
     };
   }
 }
