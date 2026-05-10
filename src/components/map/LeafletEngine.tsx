@@ -15,7 +15,7 @@ const Marker = dynamic(() => import('react-leaflet').then(mod => mod.Marker), { 
 const Popup = dynamic(() => import('react-leaflet').then(mod => mod.Popup), { ssr: false });
 const ZoomControl = dynamic(() => import('react-leaflet').then(mod => mod.ZoomControl), { ssr: false });
 
-const MarkerClusterGroup = dynamic(
+const MarkerClusterGroup = dynamic<any>(
   async () => {
     const mod = await import('react-leaflet-markercluster');
     return mod.default;
