@@ -29,7 +29,7 @@ export default function LeafletEngine({
   const clusterGroupRef = useRef<any>(null);
   const markersRef = useRef<Map<string, any>>(new Map());
 
-  // Consolidated loading
+  // Consolidated loading to prevent ChunkLoadErrors and ensure consistent client-side hydration
   useEffect(() => {
     const loadLeaflet = async () => {
       try {
@@ -56,13 +56,14 @@ export default function LeafletEngine({
     loadLeaflet();
   }, []);
 
-  // Sync external selection
+  // Sync external selection (e.g. from sidebar timeline)
   useEffect(() => {
     if (mapInstance && selectedMarkerId && clusterGroupRef.current) {
       const marker = markersRef.current.get(selectedMarkerId);
       if (marker) {
         const visibleParent = clusterGroupRef.current.getVisibleParent(marker);
         if (visibleParent && visibleParent !== marker) {
+          // Marker is inside a cluster, zoom into it
           clusterGroupRef.current.zoomToShowLayer(marker, () => {
             setTimeout(() => {
               if (mapInstance) mapInstance.panTo(marker.getLatLng());
@@ -70,6 +71,7 @@ export default function LeafletEngine({
             }, 100);
           });
         } else {
+          // Marker is directly visible
           mapInstance.panTo(marker.getLatLng());
           marker.openPopup();
         }
@@ -101,6 +103,7 @@ export default function LeafletEngine({
         if (cluster && typeof cluster.getAllChildMarkers === 'function') {
           const childMarkers = cluster.getAllChildMarkers();
           if (childMarkers.length > 1) {
+            // Find marker data by position matching
             const clusterMarkersData = childMarkers.map((childMarker: any) => {
               const childLat = childMarker.getLatLng().lat;
               const childLng = childMarker.getLatLng().lng;
@@ -111,6 +114,17 @@ export default function LeafletEngine({
               const uniqueTripNames = new Set(clusterMarkersData.map((m: any) => m.tripName || m.id));
               const isSingleTrip = uniqueTripNames.size === 1;
               const locationName = getLocationNameFromCluster(clusterMarkersData);
+
+              // Create combined data for the rich photo grid
+              const combinedMarker = {
+                ...clusterMarkersData[0],
+                photoCount: clusterMarkersData.length,
+                photos: clusterMarkersData.flatMap((m: any) => m.photos || []),
+                placeName: locationName,
+                // Calculate date range for the cluster
+                startDate: clusterMarkersData.map((m: any) => m.startDate).filter(Boolean).sort()[0],
+                endDate: clusterMarkersData.map((m: any) => m.endDate).filter(Boolean).sort().reverse()[0]
+              };
 
               const popup = L.popup({
                 className: 'travel-popup',
@@ -131,14 +145,6 @@ export default function LeafletEngine({
                 if (container) {
                   const root = ReactDOM.createRoot(container);
                   if (isSingleTrip) {
-                    const combinedMarker = {
-                      ...clusterMarkersData[0],
-                      photoCount: clusterMarkersData.length,
-                      photos: clusterMarkersData.flatMap((m: any) => m.photos || []),
-                      placeName: locationName,
-                      startDate: clusterMarkersData.map((m: any) => m.startDate).filter(Boolean).sort()[0],
-                      endDate: clusterMarkersData.map((m: any) => m.endDate).filter(Boolean).sort().reverse()[0]
-                    };
                     root.render(
                       <PhotoGridPopup 
                         marker={combinedMarker} 
@@ -169,7 +175,7 @@ export default function LeafletEngine({
   }, [L, mapInstance, markers, onMarkerClick, showSeeDetails, getLocationNameFromCluster]);
 
   if (!L || !MapComponents) return (
-    <div className={`${className} bg-stone-50 rounded-xl flex items-center justify-center min-h-[400px] border-2 border-stone-200`}>
+    <div className={`${className} bg-stone-50 rounded-xl flex items-center justify-center min-h-[400px] border-2 border-dashed border-stone-200`}>
       <div className="text-stone-400 font-medium animate-pulse flex flex-col items-center gap-2">
         <div className="w-6 h-6 border-2 border-stone-300 border-t-stone-500 rounded-full animate-spin"></div>
         Loading Atlas...
@@ -259,7 +265,9 @@ export default function LeafletEngine({
                 if (ref) markersRef.current.set(marker.id, ref);
               }}
               eventHandlers={{
-                click: () => onMarkerClick?.(marker.id),
+                click: () => {
+                  onMarkerClick?.(marker.id);
+                },
               }}
             >
               <Popup className="travel-popup" autoClose={false} closeOnClick={false}>

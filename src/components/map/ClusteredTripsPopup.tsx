@@ -51,60 +51,61 @@ export default function ClusteredTripsPopup({
     const buttonText = isIndividualMemories ? 'View in Timeline' : 'See Details';
 
   return (
-    <div className="p-4 min-w-[320px] max-w-[380px] bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl shadow-xl border-2 border-amber-200">
+    <div className="p-4 min-w-[320px] max-w-[380px] bg-white rounded-xl shadow-xl border border-stone-100">
       {/* Location Header */}
-      <div className="mb-4 pb-3 border-b-2 border-amber-200">
-        <div className="flex items-center gap-2 mb-2">
-          <MapPin size={20} className="text-amber-600" />
-          <h2 className="font-bold text-amber-900 text-lg">
+      <div className="mb-4 pb-3 border-b border-stone-100">
+        <div className="flex items-center gap-2 mb-1">
+          <MapPin size={20} className="text-red-500" />
+          <h2 className="font-bold text-stone-900 text-lg">
             {locationName || 'Multiple Locations'}
           </h2>
         </div>
-        <p className="text-xs text-amber-600 italic">
+        <p className="text-xs text-stone-400 font-medium uppercase tracking-widest">
           {markers.length} {unitLabel} in this area
         </p>
       </div>
 
       {/* Trip List */}
-      <div className="space-y-3 max-h-[400px] overflow-y-auto">
-        {markers.map((marker, index) => (
+      <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar">
+        {markers.map((marker) => (
           <div
             key={marker.id}
-            className="p-3 bg-white/80 backdrop-blur-sm rounded-lg border border-amber-200 hover:border-amber-300 hover:shadow-md transition-all"
+            className="p-3 bg-stone-50 rounded-lg border border-stone-100 hover:border-stone-200 hover:shadow-sm transition-all"
           >
             {/* Trip Name */}
-            <h3 className="font-bold text-amber-900 text-base mb-2">
+            <h3 className="font-bold text-stone-900 text-base mb-1.5">
               {marker.tripName || marker.label || 'Trip'}
             </h3>
 
-            {/* Date Range */}
-            {getDateRange(marker.startDate, marker.endDate) && (
-              <div className="flex items-center gap-2 mb-2 text-xs text-amber-700">
-                <Calendar size={12} />
-                <span>{getDateRange(marker.startDate, marker.endDate)}</span>
-              </div>
-            )}
-
-            {/* Photo Count */}
-            <div className="flex items-center gap-2 mb-3 text-xs text-amber-600">
-              <span className="font-medium">
-                {marker.photoCount || 0} {marker.photoCount === 1 ? 'memory' : 'memories'}
-              </span>
-              {marker.isPublic && !marker.isMine && (
-                <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider text-[10px] border border-amber-200">
-                  Shared
-                </span>
+            <div className="space-y-1.5 mb-3">
+              {/* Date Range */}
+              {getDateRange(marker.startDate, marker.endDate) && (
+                <div className="flex items-center gap-2 text-xs text-stone-500 font-medium">
+                  <Calendar size={12} className="text-stone-400" />
+                  <span>{getDateRange(marker.startDate, marker.endDate)}</span>
+                </div>
               )}
+
+              {/* Photo Count */}
+              <div className="flex items-center gap-2 text-xs text-stone-600">
+                <span className="font-semibold">
+                  {marker.photoCount || 0} {marker.photoCount === 1 ? 'memory' : 'memories'}
+                </span>
+                {marker.isPublic && !marker.isMine && (
+                  <span className="bg-stone-200 text-stone-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider text-[9px]">
+                    Shared
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* See Details Button */}
             <button
               type="button"
               onClick={() => {
-                console.log('📍 Trip See Details clicked:', marker.id);
                 onTripClick?.(marker.id);
               }}
-              className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+              className="w-full bg-stone-900 hover:bg-stone-800 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all shadow-sm flex items-center justify-center gap-2"
             >
               <Eye size={14} />
               {buttonText}
