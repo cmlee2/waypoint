@@ -2,8 +2,20 @@
 
 import React, { useEffect, useState } from 'react';
 import { X, Loader2, Check, Image as ImageIcon, RefreshCw, AlertCircle } from 'lucide-react';
-import { GooglePhoto, createGooglePhotosClient } from '@/utils/google/photos';
-import { getScopeTroubleshootingSteps } from '@/utils/google/scopes';
+import {
+  GooglePhoto,
+  GooglePhotosError,
+  type GooglePhotosValidationResult,
+  createGooglePhotosClient,
+} from '@/utils/google/photos';
+import {
+  GOOGLE_PHOTOS_SCOPES,
+  formatScopeErrorMessage,
+  getScopeTroubleshootingSteps,
+} from '@/utils/google/scopes';
+
+type GooglePhotosClientType = ReturnType<typeof createGooglePhotosClient>['client'];
+type GooglePhotosErrorKind = 'missing_scope' | 'api_denied' | 'token_invalid' | 'network_error' | 'unknown';
 
 interface GooglePhotosPickerProps {
   isOpen: boolean;
@@ -28,7 +40,7 @@ export default function GooglePhotosPicker({
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [nextPageToken, setNextPageToken] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
-  const [isScopeError, setIsScopeError] = useState(false);
+  const [errorKind, setErrorKind] = useState<GooglePhotosErrorKind | null>(null);
   const [showTroubleshooting, setShowTroubleshooting] = useState(false);
 
   const [debugInfo, setDebugInfo] = useState<any>(null);
@@ -46,58 +58,109 @@ export default function GooglePhotosPicker({
     loadPhotos();
   }, [isOpen, accessToken]);
 
-  const loadPhotos = async (pageToken?: string) => {
+  const updateDebugInfo = async (token: string) => {
+    const response = await fetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${token}`);
+    const data = await response.json();
+    setDebugInfo({
+      grantedScopes: data.scope ? data.scope.split(' ') : [],
+      expiresIn: data.expires_in,
+      email: data.email,
+    });
+    return data;
+  };
+
+  const resetErrorState = () => {
+    setError(null);
+    setErrorKind(null);
+    setShowTroubleshooting(false);
+  };
+
+  const setLoadError = (kind: GooglePhotosErrorKind, message: string) => {
+    setError(message);
+    setErrorKind(kind);
+    setShowTroubleshooting(kind === 'missing_scope');
+  };
+
+  const normalizeValidationErrorKind = (
+    reason: GooglePhotosValidationResult['reason']
+  ): GooglePhotosErrorKind => {
+    if (reason === 'missing_scope') return 'missing_scope';
+    if (reason === 'token_invalid' || reason === 'expired') return 'token_invalid';
+    return 'network_error';
+  };
+
+  const loadPhotos = async (
+    pageToken?: string,
+    options?: {
+      accessTokenOverride?: string;
+      clientOverride?: GooglePhotosClientType;
+      allowRefreshRetry?: boolean;
+    }
+  ) => {
+    const activeToken = options?.accessTokenOverride ?? accessToken;
+    const activeClient = options?.clientOverride ?? client;
+    const allowRefreshRetry = options?.allowRefreshRetry ?? true;
+
     if (pageToken) {
       setIsLoadingMore(true);
     } else {
       setIsLoading(true);
-      setError(null);
-      setIsScopeError(false);
-      setShowTroubleshooting(false);
+      resetErrorState();
     }
 
     try {
       setIsLoading(true);
-      setError(null);
-      setIsScopeError(false);
+      resetErrorState();
 
       // 1. Get initial debug info
-      const response = await fetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${accessToken}`);
-      const data = await response.json();
-      setDebugInfo({
-        grantedScopes: data.scope ? data.scope.split(' ') : [],
-        expiresIn: data.expires_in,
-        email: data.email
-      });
+      await updateDebugInfo(activeToken);
 
       console.log('🔑 Validating Google Photos token...');
-      let isTokenValid = await client.validateToken();
-      let activeClient = client;
+      const validation = await activeClient.validateToken();
 
-      // 2. If invalid, attempt ONE refresh
-      if (!isTokenValid && onTokenExpired) {
-        console.log('🔄 Token invalid, attempting forced refresh via callback...');
-        const newToken = await onTokenExpired(true);
-        if (newToken) {
-          console.log('✅ Token refreshed, creating new client...');
-          const { client: newClient } = createGooglePhotosClient(newToken);
-          isTokenValid = await newClient.validateToken();
-          if (isTokenValid) {
-            activeClient = newClient; // USE THE NEW CLIENT
-            // Update debug info
-            const freshResponse = await fetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${newToken}`);
-            const freshData = await freshResponse.json();
-            setDebugInfo({
-              grantedScopes: freshData.scope ? freshData.scope.split(' ') : [],
-              expiresIn: freshData.expires_in,
-              email: freshData.email
-            });
+      if (!validation.valid) {
+        const shouldRetryRefresh =
+          allowRefreshRetry &&
+          onTokenExpired &&
+          (validation.reason === 'token_invalid' || validation.reason === 'expired');
+
+        if (shouldRetryRefresh) {
+          console.log('🔄 Token invalid or expired, attempting forced refresh via callback...');
+          const newToken = await onTokenExpired(true);
+          if (newToken) {
+            const { client: refreshedClient } = createGooglePhotosClient(newToken);
+            const refreshedValidation = await refreshedClient.validateToken();
+
+            if (refreshedValidation.valid) {
+              await updateDebugInfo(newToken);
+              return loadPhotos(pageToken, {
+                accessTokenOverride: newToken,
+                clientOverride: refreshedClient,
+                allowRefreshRetry: false,
+              });
+            }
+
+            const nextKind = normalizeValidationErrorKind(refreshedValidation.reason);
+            const nextMessage =
+              nextKind === 'missing_scope'
+                ? formatScopeErrorMessage([GOOGLE_PHOTOS_SCOPES.READONLY])
+                : 'Authentication failed. Please re-authorize Google Photos and try again.';
+
+            setLoadError(nextKind, nextMessage);
+            return;
           }
         }
-      }
 
-      if (!isTokenValid) {
-        throw new Error('Authentication failed. The access token is expired or invalid. Please try re-authorizing.');
+        if (validation.reason === 'missing_scope') {
+          setLoadError('missing_scope', formatScopeErrorMessage([GOOGLE_PHOTOS_SCOPES.READONLY]));
+          return;
+        }
+
+        setLoadError(
+          normalizeValidationErrorKind(validation.reason),
+          'Authentication failed. Please re-authorize Google Photos and try again.'
+        );
+        return;
       }
 
       // 3. Make the actual API call using the ACTIVE client
@@ -116,18 +179,39 @@ export default function GooglePhotosPicker({
 
     } catch (err) {
       console.error('❌ Failed to load photos:', err);
+
+      if (err instanceof GooglePhotosError && err.code === 'api_denied' && allowRefreshRetry && onTokenExpired) {
+        console.log('🔄 API denied with valid scopes, attempting one forced token refresh...');
+        const newToken = await onTokenExpired(true);
+        if (newToken) {
+          const { client: refreshedClient } = createGooglePhotosClient(newToken);
+          const refreshedValidation = await refreshedClient.validateToken();
+
+          if (refreshedValidation.valid) {
+            await updateDebugInfo(newToken);
+            await loadPhotos(pageToken, {
+              accessTokenOverride: newToken,
+              clientOverride: refreshedClient,
+              allowRefreshRetry: false,
+            });
+            return;
+          }
+        }
+      }
+
+      if (err instanceof GooglePhotosError) {
+        const kind: GooglePhotosErrorKind =
+          err.code === 'api_denied'
+            ? 'api_denied'
+            : err.code === 'token_invalid'
+              ? 'token_invalid'
+              : 'network_error';
+        setLoadError(kind, err.message);
+        return;
+      }
+
       const errorMessage = err instanceof Error ? err.message : 'Failed to load photos';
-      setError(errorMessage);
-
-      const normalizedError = errorMessage.toLowerCase();
-      const isAuthOrPermissionError =
-        normalizedError.includes('access denied') ||
-        normalizedError.includes('permission') ||
-        normalizedError.includes('scope') ||
-        normalizedError.includes('unauthorized') ||
-        normalizedError.includes('re-authorize');
-
-      setIsScopeError(isAuthOrPermissionError);
+      setLoadError('unknown', errorMessage);
     } finally {
       setIsLoading(false);
       setIsLoadingMore(false);
@@ -186,18 +270,19 @@ export default function GooglePhotosPicker({
               <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 <p className="text-sm text-red-700 font-medium">{error}</p>
-                {isScopeError && (
+                {errorKind && (
                   <div className="mt-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        // Force re-authorization by redirecting to OAuth
-                        window.location.href = '/api/google/oauth?action=authorize&returnUrl=/trips/new';
-                      }}
-                      className="text-sm text-red-600 underline hover:text-red-800"
-                    >
-                      Re-authorize with Google Photos
-                    </button>
+                    {errorKind === 'missing_scope' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.location.href = '/api/google/oauth?action=authorize&returnUrl=/trips/new';
+                        }}
+                        className="text-sm text-red-600 underline hover:text-red-800"
+                      >
+                        Re-authorize with Google Photos
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => setShowTroubleshooting(!showTroubleshooting)}
@@ -207,11 +292,24 @@ export default function GooglePhotosPicker({
                     </button>
                     {showTroubleshooting && (
                       <div className="mt-2 text-sm text-red-600 bg-red-100/50 rounded-lg p-3">
-                        <ol className="list-decimal list-inside space-y-1">
-                          {getScopeTroubleshootingSteps().map((step, index) => (
-                            <li key={index}>{step}</li>
-                          ))}
-                        </ol>
+                        {errorKind === 'missing_scope' ? (
+                          <ol className="list-decimal list-inside space-y-1">
+                            {getScopeTroubleshootingSteps().map((step, index) => (
+                              <li key={index}>{step}</li>
+                            ))}
+                          </ol>
+                        ) : (
+                          <div className="space-y-2">
+                            <p>
+                              Google Photos denied the request even though the token appears to have scopes.
+                              This usually means the Photos Library API is disabled, the OAuth consent screen is not fully configured,
+                              or the consent grant is stale.
+                            </p>
+                            <p className="text-xs text-red-500">
+                              The app will no longer label this as a missing-scope problem unless tokeninfo actually reports one.
+                            </p>
+                          </div>
+                        )}
                         
                         {debugInfo && (
                           <div className="mt-4 pt-4 border-t border-red-200 text-xs font-mono">
@@ -226,7 +324,7 @@ export default function GooglePhotosPicker({
                               {debugInfo.grantedScopes.length === 0 && <li>NONE (Did you check the box?)</li>}
                             </ul>
                             <p className="mt-3 text-red-500">
-                              The error above is the real Google response. If scopes are present here, the issue is usually API enablement, test-user access, or a revoked session.
+                              The error above is the real Google response.
                             </p>
                           </div>
                         )}
@@ -330,18 +428,20 @@ export default function GooglePhotosPicker({
             )}
           </div>
           <div className="flex gap-3">
-            {isScopeError && (
+            {errorKind && (
               <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    window.location.href = '/api/google/oauth?action=authorize&returnUrl=/trips/new';
-                  }}
-                  className="rounded-xl border border-red-300 bg-red-50 px-6 py-2 font-medium text-red-700 transition-colors hover:bg-red-100 flex items-center gap-2"
-                >
-                  <RefreshCw size={16} />
-                  Re-authorize
-                </button>
+                {errorKind === 'missing_scope' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.location.href = '/api/google/oauth?action=authorize&returnUrl=/trips/new';
+                    }}
+                    className="rounded-xl border border-red-300 bg-red-50 px-6 py-2 font-medium text-red-700 transition-colors hover:bg-red-100 flex items-center gap-2"
+                  >
+                    <RefreshCw size={16} />
+                    Re-authorize
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={async () => {
@@ -354,14 +454,14 @@ export default function GooglePhotosPicker({
                 </button>
               </div>
             )}
-            {error && !isScopeError && (
+            {error && errorKind !== 'missing_scope' && (
               <button
                 type="button"
-                onClick={() => loadPhotos()}
+                onClick={() => loadPhotos(undefined, { allowRefreshRetry: true })}
                 className="rounded-xl border border-stone-300 bg-white px-6 py-2 font-medium text-stone-700 transition-colors hover:bg-stone-50 flex items-center gap-2"
               >
                 <RefreshCw size={16} />
-                Retry Loading
+                Retry with Fresh Token
               </button>
             )}
             <button

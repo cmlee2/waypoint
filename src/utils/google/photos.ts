@@ -33,6 +33,32 @@ export interface GooglePhotoDownloadResponse {
   mimeType: string;
 }
 
+export type GooglePhotosErrorCode =
+  | 'token_invalid'
+  | 'missing_scope'
+  | 'api_denied'
+  | 'network_error';
+
+export class GooglePhotosError extends Error {
+  code: GooglePhotosErrorCode;
+  status?: number;
+
+  constructor(message: string, code: GooglePhotosErrorCode, status?: number) {
+    super(message);
+    this.name = 'GooglePhotosError';
+    this.code = code;
+    this.status = status;
+    Object.setPrototypeOf(this, GooglePhotosError.prototype);
+  }
+}
+
+export interface GooglePhotosValidationResult {
+  valid: boolean;
+  reason?: 'token_invalid' | 'missing_scope' | 'expired' | 'unknown';
+  grantedScopes?: string[];
+  expiresIn?: number;
+}
+
 /**
  * Google Photos API client for accessing user's photos
  */
@@ -46,7 +72,7 @@ export class GooglePhotosClient {
   /**
    * Validates the access token by checking token info
    */
-  async validateToken(): Promise<boolean> {
+  async validateToken(): Promise<GooglePhotosValidationResult> {
     try {
       console.log('🔍 Validating token with Google OAuth2 API...');
       const response = await fetch('https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=' + this.accessToken);
@@ -64,8 +90,9 @@ export class GooglePhotosClient {
         console.error('❌ Token validation failed (tokeninfo API):', data);
         if (data.error_description === 'Invalid Value' || data.error === 'invalid_token') {
           console.error('The token is invalid. This usually means it was revoked or malformed.');
+          return { valid: false, reason: 'token_invalid' };
         }
-        return false;
+        return { valid: false, reason: 'unknown' };
       }
 
       const tokenScopes = data.scope || '';
@@ -75,7 +102,7 @@ export class GooglePhotosClient {
       const expiresIn = parseInt(data.expires_in || '0', 10);
       if (expiresIn && expiresIn < 30) {
         console.error('❌ Token is expired or about to expire:', expiresIn, 'seconds');
-        return false;
+        return { valid: false, reason: 'expired', expiresIn, grantedScopes: tokenScopes.split(' ').filter(Boolean) };
       }
 
       // Check that at least one relevant scope is present
@@ -90,7 +117,7 @@ export class GooglePhotosClient {
 
       if (!hasReadonly && !hasFull) {
         console.error('❌ Token missing required Photos scopes');
-        return false;
+        return { valid: false, reason: 'missing_scope', grantedScopes: tokenScopes.split(' ').filter(Boolean), expiresIn };
       }
 
       // Success! We have a valid token with correct scopes.
@@ -98,10 +125,14 @@ export class GooglePhotosClient {
       // The API calls themselves (listPhotos) will handle 403s if the API is disabled.
       
       console.log('✅ Token validation successful (scopes & expiration)');
-      return true;
+      return {
+        valid: true,
+        grantedScopes: tokenScopes.split(' ').filter(Boolean),
+        expiresIn,
+      };
     } catch (error) {
       console.error('❌ Token validation error:', error);
-      return false;
+      return { valid: false, reason: 'unknown' };
     }
   }
 
@@ -131,21 +162,23 @@ export class GooglePhotosClient {
     });
 
     if (!response.ok) {
-      const error = await response.json();
+      const error = await response.json().catch(() => ({}));
       console.error('❌ Google Photos API Error (Full Body):', JSON.stringify(error, null, 2));
 
       if (response.status === 403) {
-        const message = error.error?.message || '';
-        if (message.includes('not enabled')) {
-          throw new Error('Access Denied (403): The "Photos Library API" is enabled in your Library, but might not be fully active yet. Please wait a few minutes.');
-        } else if (message.includes('permission')) {
-          throw new Error('Access Denied (403): Your account doesn\'t have permission. Ensure you added your email as a "Test User" in the OAuth Consent Screen settings.');
-        } else {
-          throw new Error(`Access Denied (403): ${message || 'Google denied access to Google Photos.'} This is usually a Google Photos API enablement, OAuth consent, or revoked-session problem, not a missing-scope problem. Try "Clear Session & Logout" and re-authorize.`);
-        }
+        const message = error.error?.message || 'Google denied access to Google Photos.';
+        throw new GooglePhotosError(
+          `Access Denied (403): ${message} This usually means the Photos Library API is not enabled for the project, the OAuth consent/test-user setup is incomplete, or the token was granted in a stale session.`,
+          'api_denied',
+          403
+        );
       }
 
-      throw new Error(`Failed to list photos: ${error.error?.message || response.statusText}`);
+      throw new GooglePhotosError(
+        `Failed to list photos: ${error.error?.message || response.statusText}`,
+        'network_error',
+        response.status
+      );
     }
 
     const data = await response.json();
@@ -166,8 +199,12 @@ export class GooglePhotosClient {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(`Failed to get photo: ${error.error?.message || response.statusText}`);
+      const error = await response.json().catch(() => ({}));
+      throw new GooglePhotosError(
+        `Failed to get photo: ${error.error?.message || response.statusText}`,
+        response.status === 403 ? 'api_denied' : 'network_error',
+        response.status
+      );
     }
 
     return await response.json();
@@ -206,7 +243,11 @@ export class GooglePhotosClient {
 
     const response = await fetch(url);
     if (!response.ok) {
-      throw new Error(`Failed to download photo: ${response.statusText}`);
+      throw new GooglePhotosError(
+        `Failed to download photo: ${response.statusText}`,
+        response.status === 403 ? 'api_denied' : 'network_error',
+        response.status
+      );
     }
 
     return await response.blob();
