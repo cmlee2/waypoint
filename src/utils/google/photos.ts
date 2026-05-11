@@ -467,7 +467,6 @@ export class GooglePhotosClient {
       // Use exifr to parse the downloaded blob
       const exif = await exifr.parse(blob, {
         gps: true,
-        timestamp: true
       });
 
       if (exif) {
@@ -477,9 +476,10 @@ export class GooglePhotosClient {
           console.log(`📍 Found EXIF GPS for ${filename}: ${lat}, ${lng}`);
         }
 
-        if (exif.DateTimeOriginal instanceof Date) {
-          takenAt = exif.DateTimeOriginal;
-          console.log(`📅 Found EXIF Date for ${filename}: ${takenAt.toISOString()}`);
+        const exifDate = exif.DateTimeOriginal;
+        if (exifDate instanceof Date) {
+          takenAt = exifDate;
+          console.log(`📅 Found EXIF Date for ${filename}: ${exifDate.toISOString()}`);
         }
       } else {
         console.log(`ℹ️ No EXIF data found in image bytes for ${filename}`);
