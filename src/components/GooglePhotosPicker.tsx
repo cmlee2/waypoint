@@ -189,7 +189,7 @@ export default function GooglePhotosPicker({
         const payload = await response.json().catch(() => ({}));
         const message = payload?.details || payload?.error || 'Failed to create Google Photos Picker session';
         const status = response.status;
-        if (status === 401 || message.toLowerCase().includes('scope')) {
+        if (status === 401) {
           if (!createRetryRef.current && onTokenExpired) {
             createRetryRef.current = true;
             const refreshedToken = await onTokenExpired(true);
@@ -210,7 +210,15 @@ export default function GooglePhotosPicker({
         if (status === 403) {
           setLoadError(
             'api_denied',
-            'Google Photos Picker denied access. Enable the Picker API in Google Cloud Console and re-authorize with the new Google Photos Picker scope.'
+            `Google Photos Picker denied access: ${message}. If token validation already shows the Picker scope, this is a Google Cloud project or consent-screen configuration problem, not a local token refresh problem.`
+          );
+          return;
+        }
+
+        if (message.toLowerCase().includes('scope')) {
+          setLoadError(
+            'api_denied',
+            `Google Photos Picker returned a scope-related denial: ${message}. If token validation already shows the Picker scope, the Google Photos Picker API or OAuth consent screen is still misconfigured.`
           );
           return;
         }
