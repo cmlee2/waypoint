@@ -4,6 +4,12 @@ import React, { useMemo } from 'react';
 import Map, { Marker, NavigationControl } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { TripMapProps } from '@/types/map';
+import { twMerge } from 'tailwind-merge';
+import { clsx, type ClassValue } from 'clsx';
+
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
 
@@ -26,14 +32,20 @@ export default function MapboxEngine({
 
   if (!MAPBOX_TOKEN) {
     return (
-      <div className={`${className} bg-stone-100 flex items-center justify-center text-stone-500 border-2 border-dashed border-stone-300 rounded-xl`}>
+      <div className={cn(
+        "bg-stone-100 flex items-center justify-center text-stone-500 border-2 border-dashed border-stone-300 rounded-xl",
+        className
+      )}>
         Mapbox Token Missing
       </div>
     );
   }
 
   return (
-    <div className={`${className} overflow-hidden rounded-xl border-2 border-stone-200 shadow-sm`}>
+    <div className={cn(
+      "overflow-hidden relative z-0 w-full h-full",
+      className
+    )}>
       <Map
         initialViewState={initialViewState}
         mapboxAccessToken={MAPBOX_TOKEN}

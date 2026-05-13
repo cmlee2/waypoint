@@ -121,7 +121,7 @@ export default function DashboardClient({
           zoom={initialZoom}
           markers={markers}
           onMarkerClick={handleMarkerClick}
-          className="w-full h-full"
+          className="w-[calc(100%-2rem)] h-[calc(100%-2rem)] m-4 rounded-3xl border-4 border-white shadow-2xl"
         />
       </main>
     </div>

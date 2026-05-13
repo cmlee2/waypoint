@@ -237,7 +237,7 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
       </aside>
 
       {/* Main Content: Map - On mobile we swap order so map is on top */}
-      <main className="flex-1 relative bg-stone-100 min-h-[40vh] md:h-full order-first md:order-last">
+      <main className="flex-1 relative bg-white md:h-full order-first md:order-last overflow-hidden">
         {mounted && (
           <MapDisplay
             provider="leaflet"
@@ -246,7 +246,7 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
             markers={markers}
             onMarkerClick={setSelectedPhotoId}
             onMapReady={() => setMapReady(true)}
-            className="absolute inset-0"
+            className="absolute inset-0 w-full h-full"
           />
         )}
         <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_100px_rgba(0,0,0,0.05)]" />
