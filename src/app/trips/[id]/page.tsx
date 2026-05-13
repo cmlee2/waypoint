@@ -1,6 +1,6 @@
 import React from 'react';
 import { auth } from '@clerk/nextjs/server';
-import { createAdminClient } from '@/utils/supabase/server';
+import { createAuthenticatedClient } from '@/utils/supabase/server';
 import { notFound, redirect } from 'next/navigation';
 import TripViewClient from './TripViewClient';
 
@@ -11,7 +11,7 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
   }
 
   const { id } = await params;
-  const supabase = createAdminClient();
+  const supabase = await createAuthenticatedClient();
 
   // Fetch the trip and its photos, ordering photos by taken_at
   const { data: trip, error } = await supabase

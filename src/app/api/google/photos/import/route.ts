@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { createClient } from '@supabase/supabase-js';
+import { createAuthenticatedClient } from '@/utils/supabase/server';
 import { GooglePhoto, createGooglePhotosClient } from '@/utils/google/photos';
 import { refreshGoogleAccessToken } from '@/utils/google/auth';
 
@@ -41,13 +41,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No photos provided' }, { status: 400 });
     }
 
-    // Initialize Supabase client
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-      process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-    );
+    // Initialize Supabase client with authenticated user
+    const supabase = await createAuthenticatedClient();
 
     // Verify trip ownership if tripId is provided
+    // (RLS would handle this, but explicit check provides better error message)
     if (tripId) {
       const { data: trip, error: tripError } = await supabase
         .from('trips')
@@ -77,6 +75,7 @@ export async function POST(request: NextRequest) {
           );
 
           // Upload to Supabase Storage
+          // Path: {userId}/{Date.now()}-{filename}
           const fileName = `${userId}/${Date.now()}-${uploadData.filename}`;
           const { data: uploadDataResult, error: uploadError } = await supabase.storage
             .from('photos')

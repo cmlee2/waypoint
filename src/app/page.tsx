@@ -1,6 +1,6 @@
 import React from 'react';
 import { auth } from '@clerk/nextjs/server';
-import { createAdminClient } from '@/utils/supabase/server';
+import { createAuthenticatedClient } from '@/utils/supabase/server';
 import { MapMarker } from '@/types/map';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
   const { userId } = await auth();
-  const supabase = createAdminClient();
+  const supabase = await createAuthenticatedClient();
 
   let tripQuery = supabase
     .from('trips')

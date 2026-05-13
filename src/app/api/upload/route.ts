@@ -1,13 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { createClient } from '@supabase/supabase-js';
+import { createAuthenticatedClient } from '@/utils/supabase/server';
 import { v4 as uuidv4 } from 'uuid';
-
-// Initialize Supabase with Service Role for admin-level operations
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 function isMissingPlaceColumnError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
@@ -43,6 +37,8 @@ export async function POST(req: Request) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
+    const supabase = await createAuthenticatedClient();
+
     const formData = await req.formData();
     const name = formData.get('name') as string;
     const description = formData.get('description') as string;
@@ -52,7 +48,7 @@ export async function POST(req: Request) {
     const photoCount = parseInt(formData.get('photoCount') as string || '0');
 
     // 1. Create the Trip record
-    const { data: trip, error: tripError } = await supabaseAdmin
+    const { data: trip, error: tripError } = await supabase
       .from('trips')
       .insert({
         user_id: userId,
@@ -67,7 +63,7 @@ export async function POST(req: Request) {
 
     if (tripError) throw tripError;
 
-    // 2. Process and Upload Photos (no sharp = no fs/zlib errors)
+    // 2. Process and Upload Photos
     const photoPromises = [];
 
     for (let i = 0; i < photoCount; i++) {
@@ -86,8 +82,8 @@ export async function POST(req: Request) {
       const buffer = Buffer.from(await file.arrayBuffer());
       const fileName = `${userId}/${trip.id}/${uuidv4()}${getFileExtension(file)}`;
 
-      // Upload original file directly - no sharp processing
-      const { data: storageData, error: storageError } = await supabaseAdmin
+      // Upload original file directly
+      const { data: storageData, error: storageError } = await supabase
         .storage
         .from('photos')
         .upload(fileName, buffer, {
@@ -102,7 +98,7 @@ export async function POST(req: Request) {
       }
 
       // Get public URL
-      const { data: { publicUrl } } = supabaseAdmin
+      const { data: { publicUrl } } = supabase
         .storage
         .from('photos')
         .getPublicUrl(fileName);
@@ -113,10 +109,8 @@ export async function POST(req: Request) {
       const locationName = typeof meta.locationName === 'string' ? meta.locationName : null;
 
       // Extract place type from location name if available
-      // This is a simple heuristic - in production, you'd want to parse this properly
       let placeType: string | null = null;
       if (locationName) {
-        // Try to extract place type from common patterns
         const lowerName = locationName.toLowerCase();
         if (lowerName.includes('restaurant') || lowerName.includes('cafe') || lowerName.includes('coffee')) {
           placeType = 'restaurant';
@@ -144,10 +138,10 @@ export async function POST(req: Request) {
         place_type: placeType
       };
 
-      // Save Photo record in DB. If the migration hasn't run yet, retry without the new fields.
+      // Save Photo record in DB
       photoPromises.push(
         (async () => {
-          const { error: insertError } = await supabaseAdmin.from('photos').insert(photoInsert);
+          const { error: insertError } = await supabase.from('photos').insert(photoInsert);
 
           if (!insertError) {
             return;
@@ -160,7 +154,7 @@ export async function POST(req: Request) {
           console.warn('photos.place_name/place_type missing in database; retrying photo insert without place fields');
 
           const { place_name: _placeName, place_type: _placeType, ...legacyInsert } = photoInsert;
-          const { error: legacyInsertError } = await supabaseAdmin.from('photos').insert(legacyInsert);
+          const { error: legacyInsertError } = await supabase.from('photos').insert(legacyInsert);
 
           if (legacyInsertError) {
             throw legacyInsertError;
