@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import MapDisplay from '@/components/map/MapDisplay';
 import { MapMarker } from '@/types/map';
 import { ArrowLeft, Calendar, Globe, Lock, Share2 } from 'lucide-react';
@@ -14,37 +14,46 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
   const [isPublic, setIsPublic] = useState(trip.is_public);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // Generate markers from photos that have coordinates
-  const markers: MapMarker[] = trip.photos
-    .filter((p: any) => p.lat && p.lng)
-    .map((p: any) => ({
-      id: p.id,
-      lat: p.lat,
-      lng: p.lng,
-      label: p.caption || 'Memory',
-      imageUrl: p.storage_url,
-      placeName: p.place_name,
-      tripName: trip.name,
-      photoCount: 1,
-      isPublic: isPublic,
-      isMine: isMine,
-      photos: [{
+  // Generate markers from photos that have valid coordinates
+  const markers: MapMarker[] = useMemo(() => {
+    return (trip.photos || [])
+      .filter((p: any) => 
+        typeof p.lat === 'number' && 
+        typeof p.lng === 'number' && 
+        Number.isFinite(p.lat) && 
+        Number.isFinite(p.lng)
+      )
+      .map((p: any) => ({
         id: p.id,
-        storage_url: p.storage_url,
-        caption: p.caption,
         lat: p.lat,
-        lng: p.lng
-      }],
-      startDate: p.taken_at,
-      endDate: p.taken_at
-    }));
+        lng: p.lng,
+        label: p.caption || 'Memory',
+        imageUrl: p.storage_url,
+        placeName: p.place_name,
+        tripName: trip.name,
+        photoCount: 1,
+        isPublic: isPublic,
+        isMine: isMine,
+        photos: [{
+          id: p.id,
+          storage_url: p.storage_url,
+          caption: p.caption,
+          lat: p.lat,
+          lng: p.lng
+        }],
+        startDate: p.taken_at,
+        endDate: p.taken_at
+      }));
+  }, [trip.photos, isPublic, isMine]);
 
   // Use smart centering to calculate optimal center and zoom
-  const centeringResult = calculateSmartCentering(markers, {
-    minZoom: 5,
-    maxZoom: 15,
-    paddingFactor: 0.1, // Add 10% padding for better visualization
-  });
+  const centeringResult = useMemo(() => {
+    return calculateSmartCentering(markers, {
+      minZoom: 5,
+      maxZoom: 15,
+      paddingFactor: 0.1,
+    });
+  }, [markers]);
 
   const initialCenter = centeringResult.center;
   const initialZoom = centeringResult.zoom;
@@ -53,7 +62,6 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
   useEffect(() => {
     if (mapReady && markers.length > 0) {
       console.log('🗺️ Map ready, recalculating centering for', markers.length, 'markers');
-      // The map will handle proper centering via invalidateSize in LeafletEngine
     }
   }, [mapReady, markers.length]);
 
@@ -92,7 +100,7 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
   return (
     <div className="flex-1 flex flex-col md:flex-row h-[calc(100vh-4rem)]">
       {/* Sidebar: Trip Info & Timeline */}
-      <aside className="w-full md:w-96 lg:w-[400px] bg-white border-r border-stone-200 flex flex-col z-10 shadow-xl md:shadow-none h-[50vh] md:h-full min-h-0">
+      <aside className="w-full md:w-96 lg:w-[400px] bg-white border-r border-stone-200 flex flex-col z-10 shadow-xl md:shadow-none h-[50vh] md:h-full">
         {/* Header */}
         <div className="p-6 border-b border-stone-100 flex-shrink-0 bg-white/95 backdrop-blur z-20">
           <button
@@ -164,14 +172,14 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
         </div>
 
         {/* Timeline */}
-        <div className="p-6 space-y-8 flex-1">
+        <div className="p-6 space-y-8 flex-1 overflow-y-auto">
           {trip.photos.length === 0 ? (
             <div className="text-center p-8 bg-stone-50 rounded-2xl border-2 border-dashed border-stone-200">
               <p className="text-stone-500">No memories yet.</p>
             </div>
           ) : (
             <div className="relative border-l-2 border-stone-200 ml-4 space-y-10 pb-8">
-              {trip.photos.map((photo: any, index: number) => {
+              {trip.photos.map((photo: any) => {
                 const isSelected = selectedPhotoId === photo.id;
                 
                 return (
@@ -223,7 +231,7 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
       </aside>
 
       {/* Main Content: Map */}
-      <main className="flex-1 relative bg-stone-100 h-[50vh] md:h-full min-h-0">
+      <main className="flex-1 relative bg-stone-100 min-h-[400px] h-[50vh] md:h-auto">
         <MapDisplay
           provider="leaflet"
           center={initialCenter}
@@ -231,7 +239,7 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
           markers={markers}
           onMarkerClick={setSelectedPhotoId}
           onMapReady={() => setMapReady(true)}
-          className="w-full h-full"
+          className="absolute inset-0"
         />
         <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_100px_rgba(0,0,0,0.05)]" />
       </main>
