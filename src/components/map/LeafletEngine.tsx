@@ -7,9 +7,15 @@ import { truncatePlaceName } from '@/utils/location/formatAddress';
 import PhotoGridPopup from './PhotoGridPopup';
 import ClusteredTripsPopup from './ClusteredTripsPopup';
 import 'leaflet/dist/leaflet.css';
-import 'react-leaflet-markercluster/styles';
+import 'react-leaflet-markercluster/dist/styles.min.css';
 import ReactDOM from 'react-dom/client';
 import { useMap } from 'react-leaflet';
+import { twMerge } from 'tailwind-merge';
+import { clsx, type ClassValue } from 'clsx';
+
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
 
 type TripMarker = TripMapProps['markers'][number];
 
@@ -74,14 +80,26 @@ export default function LeafletEngine({
     });
   }, []);
 
+  // Handle map center/zoom updates
+  useEffect(() => {
+    if (mapInstance && center && zoom) {
+      console.log('🗺️ Updating map view to:', center, 'zoom:', zoom);
+      mapInstance.setView([center.lat, center.lng], zoom);
+    }
+  }, [mapInstance, center.lat, center.lng, zoom]);
+
   // Handle map resize when container changes
   useEffect(() => {
     if (mapInstance) {
       // Invalidate size after a short delay to ensure container has final dimensions
       const timer = setTimeout(() => {
+        const container = mapInstance.getContainer();
+        const { offsetWidth, offsetHeight } = container;
+        console.log('🗺️ Map container size:', offsetWidth, 'x', offsetHeight);
+
         mapInstance.invalidateSize();
         console.log('🗺️ Map size invalidated for proper centering');
-      }, 100);
+      }, 200);
 
       return () => clearTimeout(timer);
     }
@@ -119,7 +137,10 @@ export default function LeafletEngine({
   }, []);
 
   if (!L) return (
-    <div className={`${className} bg-stone-50 rounded-xl flex items-center justify-center min-h-[400px] border-2 border-stone-200`}>
+    <div className={cn(
+      "bg-stone-50 rounded-xl flex items-center justify-center min-h-[400px] border-2 border-stone-200",
+      className
+    )}>
       <div className="text-stone-400 font-medium animate-pulse">Initializing Map...</div>
     </div>
   );
@@ -145,7 +166,10 @@ export default function LeafletEngine({
   };
 
   return (
-    <div className={`${className} overflow-hidden rounded-xl border-2 border-stone-200 shadow-sm relative z-0 min-h-[400px]`}>
+    <div className={cn(
+      "overflow-hidden rounded-xl border-2 border-stone-200 shadow-sm relative z-0 min-h-[400px]",
+      className
+    )}>
       <MapContainer
         center={[center.lat, center.lng]}
         zoom={zoom}
@@ -154,12 +178,14 @@ export default function LeafletEngine({
       >
         <MapEventListener onMapInstance={(map) => {
           if (!mapInstance) {
+            console.log('🗺️ Map instance ready');
             setMapInstance(map);
             onMapReady?.();
           }
         }} />
         <TileLayer url={TILE_LAYER_URL} attribution={ATTRIBUTION} />
         <ZoomControl position="topright" />
+
 
         <MarkerClusterGroup
           showCoverageOnHover={false}
