@@ -41,11 +41,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No photos provided' }, { status: 400 });
     }
 
-    // Initialize Supabase client with authenticated user
+    // Initialize Supabase client with authenticated user for RLS enforcement
     const supabase = await createAuthenticatedClient();
 
     // Verify trip ownership if tripId is provided
-    // (RLS would handle this, but explicit check provides better error message)
     if (tripId) {
       const { data: trip, error: tripError } = await supabase
         .from('trips')

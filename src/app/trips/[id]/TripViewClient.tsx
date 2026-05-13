@@ -11,6 +11,8 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
   const router = useRouter();
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [isPublic, setIsPublic] = useState(trip.is_public);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   // Generate markers from photos that have coordinates
   const markers: MapMarker[] = trip.photos
@@ -24,7 +26,7 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
       placeName: p.place_name,
       tripName: trip.name,
       photoCount: 1,
-      isPublic: trip.is_public,
+      isPublic: isPublic,
       isMine: isMine,
       photos: [{
         id: p.id,
@@ -54,6 +56,24 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
       // The map will handle proper centering via invalidateSize in LeafletEngine
     }
   }, [mapReady, markers.length]);
+
+  const toggleVisibility = async () => {
+    setIsUpdating(true);
+    try {
+      const res = await fetch(`/api/trips/${trip.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_public: !isPublic }),
+      });
+      if (res.ok) {
+        setIsPublic(!isPublic);
+      }
+    } catch (err) {
+      console.error('Failed to update trip visibility:', err);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   const handleShare = async () => {
     try {
@@ -85,18 +105,34 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
           
           <h1 className="text-2xl font-bold text-stone-900 leading-tight">{trip.name}</h1>
           
-          <div className="flex items-center gap-4 mt-3 text-xs font-medium text-stone-500 uppercase tracking-wider">
-            {trip.start_date && (
+          <div className="flex items-center justify-between mt-3">
+            <div className="flex items-center gap-4 text-xs font-medium text-stone-500 uppercase tracking-wider">
+              {trip.start_date && (
+                <span className="flex items-center gap-1">
+                  <Calendar size={14} />
+                  {new Date(trip.start_date).toLocaleDateString()} 
+                  {trip.end_date ? ` - ${new Date(trip.end_date).toLocaleDateString()}` : ''}
+                </span>
+              )}
               <span className="flex items-center gap-1">
-                <Calendar size={14} />
-                {new Date(trip.start_date).toLocaleDateString()} 
-                {trip.end_date ? ` - ${new Date(trip.end_date).toLocaleDateString()}` : ''}
+                {isPublic ? <Globe size={14} className="text-green-600" /> : <Lock size={14} />}
+                {isPublic ? 'Public' : 'Private'}
               </span>
+            </div>
+
+            {isMine && (
+              <button
+                onClick={toggleVisibility}
+                disabled={isUpdating}
+                className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md transition-all ${
+                  isPublic 
+                    ? 'bg-stone-100 text-stone-600 hover:bg-stone-200' 
+                    : 'bg-stone-900 text-white hover:bg-stone-800 shadow-sm'
+                }`}
+              >
+                {isUpdating ? '...' : isPublic ? 'Make Private' : 'Make Public'}
+              </button>
             )}
-            <span className="flex items-center gap-1">
-              {trip.is_public ? <Globe size={14} className="text-green-600" /> : <Lock size={14} />}
-              {trip.is_public ? 'Public' : 'Private'}
-            </span>
           </div>
 
           {trip.description && (
@@ -105,14 +141,26 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
             </p>
           )}
 
-          {trip.is_public && (
+          <div className="mt-4 flex flex-col gap-2">
+            {!isPublic && isMine && (
+              <p className="text-[10px] text-stone-400 font-medium uppercase tracking-tight text-center italic">
+                Make trip public to share with a link
+              </p>
+            )}
             <button 
               onClick={handleShare}
-              className="mt-4 w-full flex items-center justify-center gap-2 py-2 px-4 bg-stone-100 hover:bg-stone-200 text-stone-700 font-medium rounded-xl transition-colors text-sm"
+              disabled={!isPublic && !isMine}
+              className={`w-full flex items-center justify-center gap-2 py-2 px-4 font-medium rounded-xl transition-colors text-sm ${
+                isPublic 
+                  ? 'bg-stone-900 text-white hover:bg-stone-800 shadow-md' 
+                  : isMine 
+                    ? 'bg-stone-100 text-stone-400 cursor-not-allowed border border-dashed border-stone-200'
+                    : 'hidden'
+              }`}
             >
               <Share2 size={16} /> Share Trip
             </button>
-          )}
+          </div>
         </div>
 
         {/* Timeline */}

@@ -12,6 +12,8 @@ export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
   const { userId } = await auth();
+  
+  // Clerk 'supabase' template is now configured, using Authenticated Client for RLS.
   const supabase = await createAuthenticatedClient();
 
   let tripQuery = supabase
@@ -49,7 +51,7 @@ export default async function HomePage() {
   const validTrips = trips || [];
   const markers: MapMarker[] = [];
 
-  const clientTrips = validTrips.map((trip) => {
+  const clientTrips = validTrips.map((trip: any) => {
     // Find all photos with valid coordinates
     const photosWithCoords = trip.photos?.filter((p: any) =>
       typeof p.lat === 'number' && typeof p.lng === 'number' && Number.isFinite(p.lat) && Number.isFinite(p.lng)

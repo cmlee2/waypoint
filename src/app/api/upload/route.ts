@@ -37,6 +37,7 @@ export async function POST(req: Request) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
+    // Clerk 'supabase' template is now configured, using Authenticated Client for RLS.
     const supabase = await createAuthenticatedClient();
 
     const formData = await req.formData();
