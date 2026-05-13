@@ -13,6 +13,12 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
   const [mapReady, setMapReady] = useState(false);
   const [isPublic, setIsPublic] = useState(trip.is_public);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // Fix hydration issues by only rendering map after mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Generate markers from photos that have valid coordinates
   const markers: MapMarker[] = useMemo(() => {
@@ -98,9 +104,9 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
   };
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row h-[calc(100vh-4rem)]">
+    <div className="flex-1 flex flex-col md:flex-row h-[calc(100vh-4rem)] overflow-hidden">
       {/* Sidebar: Trip Info & Timeline */}
-      <aside className="w-full md:w-96 lg:w-[400px] bg-white border-r border-stone-200 flex flex-col z-10 shadow-xl md:shadow-none h-[50vh] md:h-full">
+      <aside className="w-full md:w-96 lg:w-[400px] bg-white border-r border-stone-200 flex flex-col z-10 shadow-xl md:shadow-none h-[40vh] md:h-full overflow-hidden">
         {/* Header */}
         <div className="p-6 border-b border-stone-100 flex-shrink-0 bg-white/95 backdrop-blur z-20">
           <button
@@ -144,7 +150,7 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
           </div>
 
           {trip.description && (
-            <p className="mt-4 text-sm text-stone-600 leading-relaxed">
+            <p className="mt-4 text-sm text-stone-600 leading-relaxed line-clamp-2">
               {trip.description}
             </p>
           )}
@@ -172,7 +178,7 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
         </div>
 
         {/* Timeline */}
-        <div className="p-6 space-y-8 flex-1 overflow-y-auto">
+        <div className="p-6 space-y-8 flex-1 overflow-y-auto min-h-0">
           {trip.photos.length === 0 ? (
             <div className="text-center p-8 bg-stone-50 rounded-2xl border-2 border-dashed border-stone-200">
               <p className="text-stone-500">No memories yet.</p>
@@ -217,7 +223,7 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
                             </p>
                           )}
                           {photo.caption && (
-                            <p className="text-sm text-stone-700 leading-relaxed">{photo.caption}</p>
+                            <p className="text-sm text-stone-700 leading-relaxed line-clamp-3">{photo.caption}</p>
                           )}
                         </div>
                       )}
@@ -230,17 +236,19 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
         </div>
       </aside>
 
-      {/* Main Content: Map */}
-      <main className="flex-1 relative bg-stone-100 min-h-[400px] h-[50vh] md:h-auto">
-        <MapDisplay
-          provider="leaflet"
-          center={initialCenter}
-          zoom={initialZoom}
-          markers={markers}
-          onMarkerClick={setSelectedPhotoId}
-          onMapReady={() => setMapReady(true)}
-          className="absolute inset-0"
-        />
+      {/* Main Content: Map - On mobile we swap order so map is on top */}
+      <main className="flex-1 relative bg-stone-100 min-h-[40vh] md:h-full order-first md:order-last">
+        {mounted && (
+          <MapDisplay
+            provider="leaflet"
+            center={initialCenter}
+            zoom={initialZoom}
+            markers={markers}
+            onMarkerClick={setSelectedPhotoId}
+            onMapReady={() => setMapReady(true)}
+            className="absolute inset-0"
+          />
+        )}
         <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_100px_rgba(0,0,0,0.05)]" />
       </main>
     </div>
