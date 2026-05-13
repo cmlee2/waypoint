@@ -109,7 +109,9 @@ export default function LeafletEngine({
 
   const getLocationNameFromCluster = useCallback((clusterMarkers: any[]): string => {
     if (clusterMarkers.length === 0) return 'Trip Spot';
-    const placeNames = clusterMarkers.map(m => m.placeName).filter(Boolean);
+    const placeNames = clusterMarkers
+      .map((m) => m.placeName)
+      .filter((placeName): placeName is string => Boolean(placeName));
     if (placeNames.length > 0) {
       const nameCounts = placeNames.reduce<Record<string, number>>((acc, name) => {
         acc[name] = (acc[name] || 0) + 1;
@@ -170,11 +172,13 @@ export default function LeafletEngine({
         console.log('📍 Processing cluster with', childMarkers.length, 'markers');
 
         if (childMarkers.length > 1) {
-          const clusterMarkersData = childMarkers.map((childMarker: any) => {
+          const clusterMarkersData = childMarkers
+            .map((childMarker: any) => {
             const childLat = childMarker.getLatLng().lat;
             const childLng = childMarker.getLatLng().lng;
             return markers.find(m => Math.abs(m.lat - childLat) < 0.0001 && Math.abs(m.lng - childLng) < 0.0001);
-          }).filter(Boolean);
+          })
+            .filter((marker): marker is TripMarker => Boolean(marker));
 
           console.log('📍 Found', clusterMarkersData.length, 'matching markers');
 
@@ -292,11 +296,13 @@ export default function LeafletEngine({
           iconCreateFunction={(cluster: any) => {
             const count = cluster.getChildCount();
             const childMarkers = cluster.getAllChildMarkers();
-            const clusterMarkersData = childMarkers.map((childMarker: any) => {
-              const childLat = childMarker.getLatLng().lat;
-              const childLng = childMarker.getLatLng().lng;
-              return markers.find(m => Math.abs(m.lat - childLat) < 0.0001 && Math.abs(m.lng - childLng) < 0.0001);
-            }).filter(Boolean);
+            const clusterMarkersData = childMarkers
+              .map((childMarker: any) => {
+                const childLat = childMarker.getLatLng().lat;
+                const childLng = childMarker.getLatLng().lng;
+                return markers.find((m) => Math.abs(m.lat - childLat) < 0.0001 && Math.abs(m.lng - childLng) < 0.0001);
+              })
+              .filter((marker): marker is TripMarker => Boolean(marker));
             const locationName = getLocationNameFromCluster(clusterMarkersData);
 
             return L.divIcon({
