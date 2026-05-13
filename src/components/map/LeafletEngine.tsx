@@ -178,7 +178,7 @@ export default function LeafletEngine({
             const childLng = childMarker.getLatLng().lng;
             return markers.find(m => Math.abs(m.lat - childLat) < 0.0001 && Math.abs(m.lng - childLng) < 0.0001);
           })
-            .filter((marker): marker is TripMarker => Boolean(marker));
+            .filter((marker: TripMarker | undefined): marker is TripMarker => Boolean(marker));
 
           console.log('📍 Found', clusterMarkersData.length, 'matching markers');
 
@@ -191,7 +191,7 @@ export default function LeafletEngine({
               uniqueTrips: uniqueTripIds.size,
               isSingleTrip,
               locationName,
-              markerIds: clusterMarkersData.map(m => m.id)
+              markerIds: clusterMarkersData.map((m: TripMarker) => m.id)
             });
 
             const popup = L.popup({
@@ -302,7 +302,7 @@ export default function LeafletEngine({
                 const childLng = childMarker.getLatLng().lng;
                 return markers.find((m) => Math.abs(m.lat - childLat) < 0.0001 && Math.abs(m.lng - childLng) < 0.0001);
               })
-              .filter((marker): marker is TripMarker => Boolean(marker));
+              .filter((marker: TripMarker | undefined): marker is TripMarker => Boolean(marker));
             const locationName = getLocationNameFromCluster(clusterMarkersData);
 
             return L.divIcon({
