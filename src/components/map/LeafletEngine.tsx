@@ -38,9 +38,20 @@ type MarkerClusterGroupProps = React.PropsWithChildren<{
   disableClusteringAtZoom?: number;
   iconCreateFunction?: (cluster: any) => any;
   onClusterReady?: (clusterGroup: any) => void;
+  eventHandlers?: Record<string, (e: any) => void>;
 }>;
 
-const MarkerClusterGroup = dynamic(() => import('react-leaflet-markercluster'), { ssr: false });
+const MarkerClusterGroup = dynamic<MarkerClusterGroupProps>(
+  async () => {
+    const mod = await import('react-leaflet-markercluster');
+    const ClusterGroup = mod.default as React.ComponentType<any>;
+
+    return function MarkerClusterGroupWrapper(props: MarkerClusterGroupProps) {
+      return <ClusterGroup {...props} />;
+    };
+  },
+  { ssr: false }
+) as React.ComponentType<MarkerClusterGroupProps>;
 
 // CartoDB Positron - Minimalist light style
 const TILE_LAYER_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
