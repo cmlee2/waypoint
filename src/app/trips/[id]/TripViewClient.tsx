@@ -106,9 +106,9 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
   };
 
   return (
-    <div className="flex flex-col md:flex-row w-full h-[calc(100vh-4rem)] overflow-hidden bg-white">
+    <div className="flex flex-col md:flex-row w-full h-full overflow-hidden bg-white min-h-0">
       {/* Sidebar: Trip Info & Timeline */}
-      <aside className="w-full md:w-96 lg:w-[400px] border-r border-stone-200 flex flex-col z-10 h-[50vh] md:h-full overflow-hidden bg-white shrink-0">
+      <aside className="w-full md:w-96 lg:w-[400px] border-r border-stone-200 flex flex-col z-10 h-[40vh] md:h-full overflow-hidden bg-white shrink-0 min-h-0">
         {/* Header */}
         <div className="p-6 border-b border-stone-100 flex-shrink-0">
           <button
@@ -238,7 +238,7 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
       </aside>
 
       {/* Main Content: Map */}
-      <main className="flex-1 relative bg-white h-[50vh] md:h-full overflow-hidden order-first md:order-none min-h-[400px]">
+      <main className="flex-1 relative bg-white h-[60vh] md:h-full overflow-hidden order-first md:order-none min-h-0">
         {mounted && (
           <MapDisplay
             provider="leaflet"
