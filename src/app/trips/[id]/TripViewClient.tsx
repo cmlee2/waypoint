@@ -121,34 +121,18 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
           
           <h1 className="text-2xl font-bold text-stone-900 leading-tight">{trip.name}</h1>
           
-          <div className="flex items-center justify-between mt-3">
-            <div className="flex items-center gap-4 text-xs font-medium text-stone-500 uppercase tracking-wider">
-              {trip.start_date && (
-                <span className="flex items-center gap-1">
-                  <Calendar size={14} />
-                  {new Date(trip.start_date).toLocaleDateString()} 
-                  {trip.end_date ? ` - ${new Date(trip.end_date).toLocaleDateString()}` : ''}
-                </span>
-              )}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3 text-xs font-medium text-stone-500 uppercase tracking-wider">
+            {trip.start_date && (
               <span className="flex items-center gap-1">
-                {isPublic ? <Globe size={14} className="text-green-600" /> : <Lock size={14} />}
-                {isPublic ? 'Public' : 'Private'}
+                <Calendar size={14} />
+                {new Date(trip.start_date).toLocaleDateString()} 
+                {trip.end_date ? ` - ${new Date(trip.end_date).toLocaleDateString()}` : ''}
               </span>
-            </div>
-
-            {isMine && (
-              <button
-                onClick={toggleVisibility}
-                disabled={isUpdating}
-                className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md transition-all ${
-                  isPublic 
-                    ? 'bg-stone-100 text-stone-600 hover:bg-stone-200' 
-                    : 'bg-stone-900 text-white hover:bg-stone-800 shadow-sm'
-                }`}
-              >
-                {isUpdating ? '...' : isPublic ? 'Make Private' : 'Make Public'}
-              </button>
             )}
+            <span className="flex items-center gap-1">
+              {isPublic ? <Globe size={14} className="text-green-600" /> : <Lock size={14} />}
+              {isPublic ? 'Public' : 'Private'}
+            </span>
           </div>
 
           {trip.description && (
@@ -157,18 +141,40 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
             </p>
           )}
 
-          <div className="mt-4">
-            <button 
-              onClick={handleShare}
-              disabled={!isPublic && !isMine}
-              className={`w-full flex items-center justify-center gap-2 py-2 px-4 font-medium rounded-xl transition-colors text-sm ${
-                isPublic 
-                  ? 'bg-stone-900 text-white hover:bg-stone-800 shadow-md' 
-                  : 'bg-stone-100 text-stone-400 cursor-not-allowed border border-dashed border-stone-200'
-              }`}
-            >
-              <Share2 size={16} /> Share Trip
-            </button>
+          <div className="mt-6 flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              {isMine && (
+                <button
+                  onClick={toggleVisibility}
+                  disabled={isUpdating}
+                  className={`flex-1 flex items-center justify-center h-10 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all border-2 ${
+                    isPublic 
+                      ? 'bg-stone-50 text-stone-500 border-stone-200 hover:bg-stone-100' 
+                      : 'bg-stone-900 text-white border-stone-900 hover:bg-stone-800 shadow-md'
+                  }`}
+                >
+                  {isUpdating ? '...' : isPublic ? 'Make Private' : 'Make Public'}
+                </button>
+              )}
+              
+              <button 
+                onClick={handleShare}
+                disabled={!isPublic && !isMine}
+                className={`flex-1 flex items-center justify-center gap-2 h-10 font-bold uppercase tracking-widest rounded-xl transition-all text-[10px] border-2 ${
+                  isPublic 
+                    ? 'bg-white text-stone-900 border-stone-900 hover:bg-stone-50 shadow-sm' 
+                    : 'bg-stone-50 text-stone-300 border-dashed border-stone-200 cursor-not-allowed'
+                }`}
+              >
+                <Share2 size={14} /> Share
+              </button>
+            </div>
+            
+            {!isPublic && isMine && (
+              <p className="text-[10px] text-stone-400 font-medium uppercase tracking-tight text-center mt-1 italic">
+                Make public to share with a link
+              </p>
+            )}
           </div>
         </div>
 
