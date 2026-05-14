@@ -37,8 +37,10 @@ export default function DashboardClient({
   const [hoveredTripId, setHoveredTripId] = useState<string | null>(null);
   const [showSidebar, setShowSidebar] = useState(isAuthenticated);
   const [mapKey, setMapKey] = useState(0); // Force map remount on sidebar toggle
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     // Viewport lock for dashboard
     document.documentElement.style.overflow = 'hidden';
     document.body.style.overflow = 'hidden';
@@ -61,17 +63,17 @@ export default function DashboardClient({
   };
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row h-full bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 overflow-hidden">
+    <div className="flex-1 flex flex-col md:flex-row h-full bg-white overflow-hidden">
       {/* Sidebar: Trip List */}
       {isAuthenticated && showSidebar && (
-        <aside className="w-full md:w-80 lg:w-96 bg-gradient-to-b from-amber-50 to-orange-50 border-r-2 border-amber-200 overflow-y-auto flex flex-col z-10 shadow-xl md:shadow-none min-h-0 shrink-0">
-          <div className="p-4 flex-1 space-y-4">
+        <aside className="w-full md:w-80 lg:w-96 bg-white border-r border-stone-200 overflow-y-auto flex flex-col z-10 shadow-xl md:shadow-none min-h-0 shrink-0">
+          <div className="p-4 flex-1 space-y-4 bg-stone-50/30">
             {trips.length === 0 ? (
-              <div className="text-center p-8 bg-white/60 backdrop-blur-sm rounded-2xl border-2 border-dashed border-amber-300 shadow-sm">
-                <p className="text-amber-700 mb-4 font-medium">Your map is empty.</p>
+              <div className="text-center p-8 bg-white rounded-2xl border-2 border-dashed border-stone-200 shadow-sm">
+                <p className="text-stone-500 mb-4 font-medium">Your map is empty.</p>
                 <Link
                   href="/trips/new"
-                  className="inline-block px-6 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 text-white font-semibold rounded-full text-sm hover:from-amber-700 hover:to-orange-700 transition-all shadow-md hover:shadow-lg"
+                  className="inline-block px-6 py-2.5 bg-stone-900 text-white font-semibold rounded-full text-sm hover:bg-stone-800 transition-all shadow-md hover:shadow-lg"
                 >
                   Add First Trip
                 </Link>
@@ -86,22 +88,22 @@ export default function DashboardClient({
                     onMouseLeave={() => setHoveredTripId(null)}
                     className={`
                       group p-4 rounded-2xl transition-all cursor-pointer flex gap-4 items-center border-2
-                      ${hoveredTripId === trip.id ? 'bg-white shadow-lg border-amber-300 transform scale-[1.02]' : 'bg-white/70 backdrop-blur-sm border-transparent hover:border-amber-200 hover:shadow-md'}
+                      ${hoveredTripId === trip.id ? 'bg-white shadow-lg border-stone-300 transform scale-[1.02]' : 'bg-white border-stone-100 hover:border-stone-200 hover:shadow-md'}
                     `}
                   >
-                    <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 overflow-hidden flex-shrink-0 border-2 border-amber-200 shadow-sm">
+                    <div className="w-20 h-20 rounded-xl bg-stone-100 overflow-hidden flex-shrink-0 border border-stone-200 shadow-sm">
                       {trip.coverPhoto ? (
                         <img src={trip.coverPhoto} alt={trip.name} className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-amber-400 text-xs font-bold uppercase tracking-wider">
+                        <div className="w-full h-full flex items-center justify-center text-stone-400 text-xs font-bold uppercase tracking-wider">
                           Map
                         </div>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-amber-900 truncate text-lg">{trip.name}</h3>
-                      <p className="text-xs text-amber-700 mt-1.5 flex items-center gap-2">
-                        {!trip.isMine && <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider text-[10px] border border-amber-200">Shared</span>}
+                      <h3 className="font-bold text-stone-900 truncate text-lg">{trip.name}</h3>
+                      <p className="text-xs text-stone-500 mt-1.5 flex items-center gap-2">
+                        {!trip.isMine && <span className="bg-stone-100 text-stone-800 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider text-[10px] border border-stone-200">Shared</span>}
                         <span className="font-medium">{trip.photoCount} memories</span>
                       </p>
                     </div>
@@ -114,26 +116,29 @@ export default function DashboardClient({
       )}
 
       {/* Main Content: Map */}
-      <main className="flex-1 relative bg-gradient-to-br from-amber-100 to-orange-100 h-[50vh] md:h-full overflow-hidden min-h-[400px]">
+      <main className="flex-1 relative bg-white h-[50vh] md:h-full overflow-hidden min-h-[400px]">
         {isAuthenticated && (
           <button
             type="button"
             onClick={handleSidebarToggle}
-            className="absolute top-4 left-4 z-[1000] rounded-full bg-gradient-to-r from-amber-50 to-orange-50 px-5 py-2.5 text-sm font-semibold text-amber-900 shadow-xl ring-2 ring-amber-200 transition hover:from-amber-100 hover:to-orange-100 hover:shadow-2xl border border-amber-300"
+            className="absolute top-4 left-4 z-[1000] rounded-full bg-white/90 backdrop-blur-sm px-5 py-2.5 text-sm font-bold text-stone-900 shadow-xl border border-stone-200 hover:bg-white transition-all active:scale-95"
           >
             {showSidebar ? 'Hide Trips' : 'Show Trips'}
           </button>
         )}
 
-        <MapDisplay
-          key={mapKey}
-          provider="leaflet"
-          center={initialCenter}
-          zoom={initialZoom}
-          markers={markers}
-          onMarkerClick={handleMarkerClick}
-          className="w-full h-full"
-        />
+        {mounted && (
+          <MapDisplay
+            key={mapKey}
+            provider="leaflet"
+            center={initialCenter}
+            zoom={initialZoom}
+            markers={markers}
+            onMarkerClick={handleMarkerClick}
+            className="absolute inset-0 w-full h-full"
+          />
+        )}
+        <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_100px_rgba(0,0,0,0.05)]" />
       </main>
     </div>
   );
