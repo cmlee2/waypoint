@@ -167,7 +167,7 @@ export default function LeafletEngine({
 
   return (
     <div className={cn(
-      "overflow-hidden relative z-0 w-full h-full min-h-[300px] md:min-h-0",
+      "overflow-hidden relative z-0 w-full h-full",
       className
     )}>
       <MapContainer

@@ -41,14 +41,6 @@ export default function DashboardClient({
 
   useEffect(() => {
     setMounted(true);
-    // Viewport lock for dashboard
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
-    
-    return () => {
-      document.documentElement.style.overflow = '';
-      document.body.style.overflow = '';
-    };
   }, []);
 
   const handleMarkerClick = (id: string) => {
@@ -63,7 +55,7 @@ export default function DashboardClient({
   };
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row h-full bg-white overflow-hidden">
+    <div className="w-full h-[calc(100vh-4rem)] flex flex-col md:flex-row bg-white overflow-hidden">
       {/* Sidebar: Trip List */}
       {isAuthenticated && showSidebar && (
         <aside className="w-full md:w-80 lg:w-96 bg-white border-r border-stone-200 overflow-y-auto flex flex-col z-10 shadow-xl md:shadow-none min-h-0 shrink-0">
@@ -116,7 +108,7 @@ export default function DashboardClient({
       )}
 
       {/* Main Content: Map */}
-      <main className="flex-1 relative bg-white h-[50vh] md:h-full overflow-hidden min-h-[400px]">
+      <main className="flex-1 relative bg-white h-[50vh] md:h-full overflow-hidden min-h-0">
         {isAuthenticated && (
           <button
             type="button"
