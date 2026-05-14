@@ -120,7 +120,22 @@ export default function NewTripPage() {
         </header>
 
         <div className="space-y-12">
-          {/* Section 1: Basic Info */}
+          {/* Section 1: Photos */}
+          <section id="photos" className="space-y-6 scroll-mt-24">
+            <div className="flex items-center gap-3 px-8">
+              <div className="w-1.5 h-6 bg-stone-800 rounded-full" />
+              <h2 className="text-xl font-bold text-stone-900">Add Memories</h2>
+            </div>
+            <PhotoUploader
+              onChange={setPhotos}
+              autoOpen={shouldAutoOpenUploader}
+              onSubmit={handleCreateTrip}
+              submitDisabled={!tripData.name}
+              isSubmitting={isSubmitting}
+            />
+          </section>
+
+          {/* Section 2: Basic Info */}
           <section className="bg-white rounded-3xl p-8 border border-stone-200 shadow-sm space-y-6">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-1.5 h-6 bg-stone-800 rounded-full" />
@@ -164,21 +179,6 @@ export default function NewTripPage() {
                 />
               </div>
             </div>
-          </section>
-
-          {/* Section 2: Photos */}
-          <section id="photos" className="space-y-6 scroll-mt-24">
-            <div className="flex items-center gap-3 px-8">
-              <div className="w-1.5 h-6 bg-stone-800 rounded-full" />
-              <h2 className="text-xl font-bold text-stone-900">Add Memories</h2>
-            </div>
-            <PhotoUploader
-              onChange={setPhotos}
-              autoOpen={shouldAutoOpenUploader}
-              onSubmit={handleCreateTrip}
-              submitDisabled={!tripData.name}
-              isSubmitting={isSubmitting}
-            />
           </section>
 
           {/* Section 3: Privacy & Submit */}
