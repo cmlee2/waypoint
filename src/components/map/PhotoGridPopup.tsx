@@ -118,7 +118,7 @@ export default function PhotoGridPopup({ marker, onSeeDetails, onPhotoClick }: P
   };
 
   return (
-    <div className="bg-white p-3 pb-8 shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-stone-200 min-w-[280px] max-w-[300px] flex flex-col transform rotate-[1deg] hover:rotate-0 transition-transform duration-300">
+    <div className="bg-white p-3 pb-8 shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-stone-200 min-w-[280px] max-w-[300px] flex flex-col">
       {/* Polaroid Image Area */}
       <div 
         className="aspect-square mb-6 bg-stone-100 overflow-hidden shadow-inner cursor-pointer group/grid relative border border-stone-100"
@@ -132,7 +132,7 @@ export default function PhotoGridPopup({ marker, onSeeDetails, onPhotoClick }: P
 
       {/* Polaroid Caption Area */}
       <div className="px-1 flex flex-col items-center">
-        <h3 className="handwritten text-3xl text-stone-800 leading-tight mb-2 text-center">
+        <h3 className="font-bold text-stone-900 text-lg leading-tight mb-2 text-center">
           {marker.label || marker.tripName || 'Memory'}
         </h3>
         
