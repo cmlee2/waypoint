@@ -290,14 +290,14 @@ export default function LeafletEngine({
                     return; // Don't process cluster events here
                   }
                   e.target.openPopup();
-                  onMarkerClick?.(marker.id);
                 },
               }}
             >
               <Popup className="travel-popup" autoClose={false}>
                 <PhotoGridPopup
                   marker={marker}
-                  onPhotoClick={(photoId) => onMarkerClick?.(photoId)}
+                  onSeeDetails={() => onMarkerClick?.(marker.id)}
+                  onPhotoClick={onMarkerClick ? (photoId) => onMarkerClick(photoId) : undefined}
                 />
               </Popup>
             </Marker>
