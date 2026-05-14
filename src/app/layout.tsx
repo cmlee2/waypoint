@@ -14,9 +14,9 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html lang="en" className="h-full overflow-hidden">
-        <body className="h-full flex flex-col bg-stone-50 antialiased overflow-hidden">
-          <header className="border-b border-stone-200 bg-white/80 backdrop-blur-md flex-shrink-0 z-50">
+      <html lang="en" className="h-full">
+        <body className="min-h-full flex flex-col bg-stone-50 antialiased">
+          <header className="border-b border-stone-200 bg-white/80 backdrop-blur-md flex-shrink-0 z-50 sticky top-0">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-stone-800 rounded-lg flex items-center justify-center text-white font-bold shadow-sm">W</div>
@@ -40,7 +40,8 @@ export default function RootLayout({
               </nav>
             </div>
           </header>
-          <main className="flex-1 flex flex-col min-h-0 overflow-hidden">{children}</main>
+          {/* We let individual pages handle their own scrolling behavior */}
+          <main className="flex-1 flex flex-col min-h-0">{children}</main>
         </body>
       </html>
     </ClerkProvider>

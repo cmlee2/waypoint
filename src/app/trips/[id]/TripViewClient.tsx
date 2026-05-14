@@ -18,6 +18,15 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
   // Fix hydration issues by only rendering map after mount
   useEffect(() => {
     setMounted(true);
+    // On mount, we want to ensure the body is viewport-locked for THIS page
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    
+    return () => {
+      // Cleanup when leaving the trip view
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+    };
   }, []);
 
   // Generate markers from photos that have valid coordinates
@@ -97,7 +106,7 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
   };
 
   return (
-    <div className="flex flex-col md:flex-row w-full h-full overflow-hidden bg-white">
+    <div className="flex flex-col md:flex-row w-full h-[calc(100vh-4rem)] overflow-hidden bg-white">
       {/* Sidebar: Trip Info & Timeline */}
       <aside className="w-full md:w-96 lg:w-[400px] border-r border-stone-200 flex flex-col z-10 h-[50vh] md:h-full overflow-hidden bg-white shrink-0">
         {/* Header */}
@@ -223,7 +232,7 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
       </aside>
 
       {/* Main Content: Map */}
-      <main className="flex-1 relative bg-white h-[50vh] md:h-full overflow-hidden order-first md:order-none min-h-[500px]">
+      <main className="flex-1 relative bg-white h-[50vh] md:h-full overflow-hidden order-first md:order-none min-h-[400px]">
         {mounted && (
           <MapDisplay
             provider="leaflet"

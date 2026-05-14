@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import MapDisplay from '@/components/map/MapDisplay';
 import { MapMarker } from '@/types/map';
 import { useRouter } from 'next/navigation';
@@ -38,6 +38,17 @@ export default function DashboardClient({
   const [showSidebar, setShowSidebar] = useState(isAuthenticated);
   const [mapKey, setMapKey] = useState(0); // Force map remount on sidebar toggle
 
+  useEffect(() => {
+    // Viewport lock for dashboard
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    
+    return () => {
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+    };
+  }, []);
+
   const handleMarkerClick = (id: string) => {
     console.log('📍 handleMarkerClick called for trip:', id);
     // Navigate to trip detail page
@@ -50,10 +61,10 @@ export default function DashboardClient({
   };
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row h-full bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
+    <div className="flex-1 flex flex-col md:flex-row h-full bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 overflow-hidden">
       {/* Sidebar: Trip List */}
       {isAuthenticated && showSidebar && (
-        <aside className="w-full md:w-80 lg:w-96 bg-gradient-to-b from-amber-50 to-orange-50 border-r-2 border-amber-200 overflow-y-auto flex flex-col z-10 shadow-xl md:shadow-none">
+        <aside className="w-full md:w-80 lg:w-96 bg-gradient-to-b from-amber-50 to-orange-50 border-r-2 border-amber-200 overflow-y-auto flex flex-col z-10 shadow-xl md:shadow-none min-h-0 shrink-0">
           <div className="p-4 flex-1 space-y-4">
             {trips.length === 0 ? (
               <div className="text-center p-8 bg-white/60 backdrop-blur-sm rounded-2xl border-2 border-dashed border-amber-300 shadow-sm">
@@ -103,7 +114,7 @@ export default function DashboardClient({
       )}
 
       {/* Main Content: Map */}
-      <main className="flex-1 relative bg-gradient-to-br from-amber-100 to-orange-100 h-[50vh] md:h-auto">
+      <main className="flex-1 relative bg-gradient-to-br from-amber-100 to-orange-100 h-[50vh] md:h-full overflow-hidden min-h-[400px]">
         {isAuthenticated && (
           <button
             type="button"
@@ -121,7 +132,7 @@ export default function DashboardClient({
           zoom={initialZoom}
           markers={markers}
           onMarkerClick={handleMarkerClick}
-          className="w-[calc(100%-2rem)] h-[calc(100%-2rem)] m-4 rounded-3xl border-4 border-white shadow-2xl"
+          className="w-full h-full"
         />
       </main>
     </div>
