@@ -64,13 +64,6 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
   const initialCenter = centeringResult.center;
   const initialZoom = centeringResult.zoom;
 
-  // Recalculate centering when map is ready
-  useEffect(() => {
-    if (mapReady && markers.length > 0) {
-      console.log('🗺️ Map ready, recalculating centering for', markers.length, 'markers');
-    }
-  }, [mapReady, markers.length]);
-
   const toggleVisibility = async () => {
     setIsUpdating(true);
     try {
@@ -104,11 +97,11 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
   };
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row h-[calc(100vh-4rem)] overflow-hidden">
+    <div className="flex flex-col md:flex-row w-full h-full overflow-hidden bg-white">
       {/* Sidebar: Trip Info & Timeline */}
-      <aside className="w-full md:w-96 lg:w-[400px] bg-white border-r border-stone-200 flex flex-col z-10 shadow-xl md:shadow-none h-[40vh] md:h-full overflow-hidden">
+      <aside className="w-full md:w-96 lg:w-[400px] border-r border-stone-200 flex flex-col z-10 h-[50vh] md:h-full overflow-hidden bg-white shrink-0">
         {/* Header */}
-        <div className="p-6 border-b border-stone-100 flex-shrink-0 bg-white/95 backdrop-blur z-20">
+        <div className="p-6 border-b border-stone-100 flex-shrink-0">
           <button
             onClick={() => router.push('/')}
             className="flex items-center gap-2 text-stone-500 hover:text-stone-900 transition-colors mb-4 group"
@@ -155,21 +148,14 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
             </p>
           )}
 
-          <div className="mt-4 flex flex-col gap-2">
-            {!isPublic && isMine && (
-              <p className="text-[10px] text-stone-400 font-medium uppercase tracking-tight text-center italic">
-                Make trip public to share with a link
-              </p>
-            )}
+          <div className="mt-4">
             <button 
               onClick={handleShare}
               disabled={!isPublic && !isMine}
               className={`w-full flex items-center justify-center gap-2 py-2 px-4 font-medium rounded-xl transition-colors text-sm ${
                 isPublic 
                   ? 'bg-stone-900 text-white hover:bg-stone-800 shadow-md' 
-                  : isMine 
-                    ? 'bg-stone-100 text-stone-400 cursor-not-allowed border border-dashed border-stone-200'
-                    : 'hidden'
+                  : 'bg-stone-100 text-stone-400 cursor-not-allowed border border-dashed border-stone-200'
               }`}
             >
               <Share2 size={16} /> Share Trip
@@ -178,7 +164,7 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
         </div>
 
         {/* Timeline */}
-        <div className="p-6 space-y-8 flex-1 overflow-y-auto min-h-0">
+        <div className="p-6 space-y-8 flex-1 overflow-y-auto min-h-0 bg-stone-50/30">
           {trip.photos.length === 0 ? (
             <div className="text-center p-8 bg-stone-50 rounded-2xl border-2 border-dashed border-stone-200">
               <p className="text-stone-500">No memories yet.</p>
@@ -236,8 +222,8 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
         </div>
       </aside>
 
-      {/* Main Content: Map - On mobile we swap order so map is on top */}
-      <main className="w-full h-[50vh] md:h-full relative bg-white order-first md:order-last overflow-hidden flex-shrink-0 md:flex-1">
+      {/* Main Content: Map */}
+      <main className="flex-1 relative bg-white h-[50vh] md:h-full overflow-hidden order-first md:order-none min-h-[500px]">
         {mounted && (
           <MapDisplay
             provider="leaflet"
