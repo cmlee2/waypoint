@@ -116,7 +116,6 @@ export default function NewTripPage() {
 
         <header className="mb-12">
           <h1 className="text-4xl font-bold text-stone-900 tracking-tight">Create a New Trip</h1>
-          <p className="text-stone-500 mt-2 text-lg italic">"Collect moments, not things."</p>
         </header>
 
         <div className="space-y-12">
