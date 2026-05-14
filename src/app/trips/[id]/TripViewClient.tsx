@@ -18,15 +18,6 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
   // Fix hydration issues by only rendering map after mount
   useEffect(() => {
     setMounted(true);
-    // On mount, we want to ensure the body is viewport-locked for THIS page
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
-    
-    return () => {
-      // Cleanup when leaving the trip view
-      document.documentElement.style.overflow = '';
-      document.body.style.overflow = '';
-    };
   }, []);
 
   // Generate markers from photos that have valid coordinates
@@ -106,9 +97,9 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
   };
 
   return (
-    <div className="flex flex-col md:flex-row w-full h-full overflow-hidden bg-white min-h-0">
+    <div className="flex flex-col md:flex-row w-full h-[calc(100vh-4rem)] overflow-hidden bg-white">
       {/* Sidebar: Trip Info & Timeline */}
-      <aside className="w-full md:w-96 lg:w-[400px] border-r border-stone-200 flex flex-col z-10 h-[40vh] md:h-full overflow-hidden bg-white shrink-0 min-h-0">
+      <aside className="w-full md:w-96 lg:w-[400px] border-r border-stone-200 flex flex-col z-10 h-[50vh] md:h-full overflow-hidden bg-white shrink-0">
         {/* Header */}
         <div className="p-6 border-b border-stone-100 flex-shrink-0">
           <button
@@ -179,7 +170,7 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
         </div>
 
         {/* Timeline */}
-        <div className="p-6 space-y-8 flex-1 overflow-y-auto min-h-0 bg-stone-50/30">
+        <div className="p-6 space-y-8 flex-1 overflow-y-auto min-h-0 bg-stone-50/30 custom-scrollbar">
           {trip.photos.length === 0 ? (
             <div className="text-center p-8 bg-stone-50 rounded-2xl border-2 border-dashed border-stone-200">
               <p className="text-stone-500">No memories yet.</p>
@@ -238,7 +229,7 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
       </aside>
 
       {/* Main Content: Map */}
-      <main className="flex-1 relative bg-white h-[60vh] md:h-full overflow-hidden order-first md:order-none min-h-0">
+      <main className="flex-1 relative bg-white h-[50vh] md:h-full overflow-hidden order-first md:order-none min-h-0">
         {mounted && (
           <MapDisplay
             provider="leaflet"
