@@ -574,22 +574,13 @@ export default function PhotoUploader({
 
       {/* Actions */}
       {photos.length > 0 && !isProcessing && (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex justify-center">
           <button
             type="button"
             onClick={open}
-            className="rounded-full border border-stone-300 bg-white px-6 py-3 text-sm font-medium text-stone-700 transition-colors hover:border-stone-400 hover:bg-stone-50"
+            className="rounded-full border border-stone-300 bg-white px-8 py-3 text-sm font-medium text-stone-700 transition-colors hover:border-stone-400 hover:bg-stone-50 shadow-sm"
           >
             Add More Photos
-          </button>
-          <button
-            type="button"
-            onClick={onSubmit}
-            disabled={isSubmitting || submitDisabled || !onSubmit}
-            className="bg-stone-900 text-white px-8 py-3 rounded-full font-medium hover:bg-stone-800 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {isSubmitting && <Loader2 size={18} className="animate-spin" />}
-            {submitLabel}
           </button>
         </div>
       )}
