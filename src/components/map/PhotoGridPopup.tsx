@@ -61,7 +61,7 @@ export default function PhotoGridPopup({ marker, onSeeDetails, onPhotoClick }: P
   const renderPhotoGrid = () => {
     if (photos.length === 0 && marker.imageUrl) {
       return (
-        <div className="w-full h-full overflow-hidden rounded-lg">
+        <div className="w-full h-full overflow-hidden">
           <img
             src={marker.imageUrl}
             alt={marker.label || 'Photo'}
@@ -73,14 +73,14 @@ export default function PhotoGridPopup({ marker, onSeeDetails, onPhotoClick }: P
 
     if (photos.length === 0) {
       return (
-        <div className="aspect-square bg-gradient-to-br from-stone-100 to-stone-200 rounded-lg flex items-center justify-center border border-stone-200">
+        <div className="aspect-square bg-gradient-to-br from-stone-100 to-stone-200 flex items-center justify-center border border-stone-200">
           <MapPin size={32} className="text-stone-400" />
         </div>
       );
     }
 
     return (
-      <div className="grid grid-cols-2 grid-rows-2 gap-1 w-full h-full">
+      <div className="grid grid-cols-2 grid-rows-2 gap-0.5 w-full h-full bg-stone-200">
         {photos.slice(0, 4).map((photo, index) => {
           const isLastPhoto = index === 3 && photoCount > 4;
           const remainingPhotos = photoCount - 3;
@@ -88,7 +88,7 @@ export default function PhotoGridPopup({ marker, onSeeDetails, onPhotoClick }: P
           return (
             <div
               key={photo.id}
-              className={`relative ${getGridClass(index, Math.min(photoCount, 4))} overflow-hidden rounded-lg cursor-pointer group`}
+              className={`relative ${getGridClass(index, Math.min(photoCount, 4))} overflow-hidden cursor-pointer group`}
               onClick={() => onPhotoClick?.(photo.id)}
             >
               <img
@@ -97,7 +97,7 @@ export default function PhotoGridPopup({ marker, onSeeDetails, onPhotoClick }: P
                 className="w-full h-full object-cover transition-transform group-hover:scale-105"
               />
               {isLastPhoto && remainingPhotos > 0 && (
-                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center">
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-[1px] flex items-center justify-center">
                   <div className="text-center">
                     <Eye size={20} className="text-white mx-auto mb-1" />
                     <span className="text-white font-bold text-sm">+{remainingPhotos}</span>
@@ -118,64 +118,70 @@ export default function PhotoGridPopup({ marker, onSeeDetails, onPhotoClick }: P
   };
 
   return (
-    <div className="p-4 min-w-[280px] max-w-[320px] bg-white rounded-xl shadow-xl border border-stone-100">
-      {/* Photo Grid */}
+    <div className="bg-white p-3 pb-8 shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-stone-200 min-w-[280px] max-w-[300px] flex flex-col transform rotate-[1deg] hover:rotate-0 transition-transform duration-300">
+      {/* Polaroid Image Area */}
       <div 
-        className="aspect-square mb-4 rounded-lg overflow-hidden border border-stone-100 shadow-sm cursor-pointer group/grid"
+        className="aspect-square mb-6 bg-stone-100 overflow-hidden shadow-inner cursor-pointer group/grid relative border border-stone-100"
         onClick={() => !onPhotoClick && onSeeDetails?.()}
       >
         {renderPhotoGrid()}
+        
+        {/* Subtle photo gloss effect */}
+        <div className="absolute inset-0 pointer-events-none bg-gradient-to-tr from-white/5 to-transparent opacity-30" />
       </div>
 
-      {/* Info Container */}
-      <div className="space-y-3">
-        <div>
-          <h3 className="font-bold text-stone-900 text-lg leading-tight">
-            {marker.label || marker.tripName || 'Memory'}
-          </h3>
-
-          <div className="flex flex-col gap-1.5 mt-1">
+      {/* Polaroid Caption Area */}
+      <div className="px-1 flex flex-col items-center">
+        <h3 className="handwritten text-3xl text-stone-800 leading-tight mb-2 text-center">
+          {marker.label || marker.tripName || 'Memory'}
+        </h3>
+        
+        <div className="flex flex-col gap-1.5 items-center w-full">
+          {/* Metadata Row */}
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 opacity-60">
             {/* Date */}
             {getDateRange(marker.startDate, marker.endDate) && (
-              <div className="flex items-center gap-2 text-sm text-stone-50 font-medium">
-                <Calendar size={14} className="text-stone-400" />
-                <span className="text-stone-500">{getDateRange(marker.startDate, marker.endDate)}</span>
+              <div className="flex items-center gap-1.5 text-[10px] text-stone-500 font-medium uppercase tracking-widest">
+                <Calendar size={10} className="text-stone-400" />
+                <span>{getDateRange(marker.startDate, marker.endDate)}</span>
               </div>
             )}
 
             {/* Location */}
             {marker.placeName && (
-              <div className="flex items-start gap-2 text-sm text-stone-600">
-                <MapPin size={14} className="text-red-500 mt-0.5 flex-shrink-0" />
-                <span className="leading-snug">{marker.placeName}</span>
+              <div className="flex items-center gap-1.5 text-[11px] text-stone-600 font-medium italic">
+                <MapPin size={10} className="text-red-400" />
+                <span className="truncate max-w-[180px]">{marker.placeName}</span>
               </div>
             )}
           </div>
-        </div>
 
-        {/* Action Button */}
-        {onSeeDetails && (
+          {/* Photo Count (if > 1 and not showing full button) */}
+          {photoCount > 1 && !onSeeDetails && (
+            <div className="mt-1">
+              <span className="text-[9px] font-bold text-stone-300 uppercase tracking-[0.2em]">
+                {photoCount} Memories
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Action Button - Placed at the very bottom, slightly outside the "polaroid" feel or as a small tag */}
+      {onSeeDetails && (
+        <div className="mt-6 pt-4 border-t border-stone-50">
           <button
             onClick={(e) => {
               e.stopPropagation();
               onSeeDetails();
             }}
-            className="w-full py-2.5 px-4 bg-stone-900 text-white text-xs font-bold uppercase tracking-widest rounded-xl hover:bg-stone-800 transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg active:scale-95"
+            className="w-full py-2.5 px-4 bg-stone-900 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-lg hover:bg-stone-800 transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl active:scale-95"
           >
-            <Eye size={14} />
+            <Eye size={12} />
             View Full Trip
           </button>
-        )}
-
-        {/* Photo Count (if > 1 and not showing button) */}
-        {photoCount > 1 && !onSeeDetails && (
-          <div className="mt-1 pt-2 border-t border-stone-50">
-            <span className="text-xs font-bold text-stone-400 uppercase tracking-widest">
-              {photoCount} Memories at this spot
-            </span>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

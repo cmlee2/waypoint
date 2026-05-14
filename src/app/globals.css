@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Indie+Flower&display=swap');
 
 :root {
   --background: #fdfaf6; /* Warm parchment color */
@@ -119,7 +120,7 @@ body {
   }
 
   .handwritten {
-    font-family: 'Indie Flower', cursive; /* We should add this font later */
+    font-family: 'Caveat', cursive;
   }
 
   .travel-shadow {
