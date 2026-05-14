@@ -237,7 +237,7 @@ export default function TripViewClient({ trip, isMine }: { trip: any, isMine: bo
       </aside>
 
       {/* Main Content: Map - On mobile we swap order so map is on top */}
-      <main className="flex-1 relative bg-white md:h-full order-first md:order-last overflow-hidden">
+      <main className="w-full h-[50vh] md:h-full relative bg-white order-first md:order-last overflow-hidden flex-shrink-0 md:flex-1">
         {mounted && (
           <MapDisplay
             provider="leaflet"
