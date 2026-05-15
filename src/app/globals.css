@@ -2,24 +2,31 @@
 @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Indie+Flower&display=swap');
 
 :root {
-  --background: #fdfaf6; /* Warm parchment color */
-  --foreground: #3d3d3d;
-  --accent: #d4a373;
+  --background: #f5f2eb; /* Richer cardstock paper color */
+  --foreground: #2c2825; /* Ink-like dark brown */
+  --accent: #b45309; /* Deep amber/ink */
   --accent-foreground: #ffffff;
   --muted: #e7e0d2;
   --border: #dcd4c6;
-  --travel-primary: #8B4513;
-  --travel-secondary: #D2691E;
-  --travel-accent: #F4A460;
+  --card: #ffffff;
+  --card-foreground: #2c2825;
+  --travel-primary: #8b4513; /* Saddle brown */
+  --travel-secondary: #d2691e; /* Chocolate */
+  --travel-accent: #f4a460; /* Sandy brown */
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background-image:
-    radial-gradient(#e7e0d2 1px, transparent 1px);
-  background-size: 40px 40px; /* Subtle grid/texture */
+  /* Multi-layered paper texture */
+  background-image: 
+    url("https://www.transparenttextures.com/patterns/paper-fibers.png"),
+    linear-gradient(to right, rgba(0,0,0,0.02) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0,0,0,0.02) 1px, transparent 1px);
+  background-size: auto, 40px 40px, 40px 40px;
+  background-blend-mode: multiply;
+  min-height: 100vh;
 }
 
 /* Custom Leaflet Popup Styles */

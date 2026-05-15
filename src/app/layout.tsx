@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ClerkProvider, SignInButton, SignUpButton, Show, UserButton } from "@clerk/nextjs";
+import { Compass } from "lucide-react";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -15,20 +16,22 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en" className="h-full">
-        <body className="min-h-full flex flex-col bg-stone-50 antialiased">
-          <header className="border-b border-stone-200 bg-white/80 backdrop-blur-md flex-shrink-0 z-50 sticky top-0">
+        <body className="min-h-full flex flex-col antialiased">
+          <header className="border-b border-stone-200 bg-[#f5f2eb]/80 backdrop-blur-md flex-shrink-0 z-50 sticky top-0 shadow-sm">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-stone-800 rounded-lg flex items-center justify-center text-white font-bold shadow-sm">W</div>
-                <h1 className="text-xl font-bold tracking-tight text-stone-900">Waypoint</h1>
-              </div>
+              <a href="/" className="flex items-center gap-2 group transition-transform active:scale-95">
+                <div className="w-10 h-10 bg-stone-900 rounded-xl flex items-center justify-center text-white shadow-lg group-hover:bg-amber-700 transition-colors">
+                  <Compass className="w-6 h-6" />
+                </div>
+                <h1 className="text-2xl font-bold tracking-tight text-stone-900 handwritten">Waypoint</h1>
+              </a>
               <nav className="flex items-center gap-6">
                 <Show when="signed-out">
                   <SignInButton mode="modal">
-                    <button className="text-sm font-medium text-stone-600 hover:text-stone-900 transition-colors">Sign In</button>
+                    <button className="text-sm font-medium text-stone-600 hover:text-stone-900 transition-colors cursor-pointer">Sign In</button>
                   </SignInButton>
                   <SignUpButton mode="modal">
-                    <button className="text-sm font-medium bg-stone-900 text-white px-5 py-2 rounded-full hover:bg-stone-800 shadow-sm transition-all active:scale-95">Sign Up</button>
+                    <button className="text-sm font-medium bg-stone-900 text-white px-5 py-2 rounded-full hover:bg-stone-800 shadow-md transition-all active:scale-95 cursor-pointer">Sign Up</button>
                   </SignUpButton>
                 </Show>
                 <Show when="signed-in">

@@ -12,12 +12,42 @@ import ReactDOM from 'react-dom/client';
 import { useMap } from 'react-leaflet';
 import { twMerge } from 'tailwind-merge';
 import { clsx, type ClassValue } from 'clsx';
+import { Layers, Map as MapIcon, Sun, Moon, TreePine } from 'lucide-react';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 type TripMarker = TripMapProps['markers'][number];
+
+const MAP_STYLES = {
+  light: {
+    name: 'Light',
+    url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    icon: Sun
+  },
+  dark: {
+    name: 'Dark',
+    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    icon: Moon
+  },
+  streets: {
+    name: 'Streets',
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    icon: MapIcon
+  },
+  outdoor: {
+    name: 'Outdoor',
+    url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+    attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)',
+    icon: TreePine
+  }
+};
+
+type MapStyleKey = keyof typeof MAP_STYLES;
 
 function MapEventListener({ onMapInstance }: { onMapInstance: (map: any) => void }) {
   const map = useMap();
@@ -73,6 +103,7 @@ export default function LeafletEngine({
 }: TripMapProps) {
   const [L, setL] = useState<any>(null);
   const [mapInstance, setMapInstance] = useState<any>(null);
+  const [mapStyle, setMapStyle] = useState<MapStyleKey>('light');
 
   useEffect(() => {
     import('leaflet').then(mod => {
@@ -167,9 +198,35 @@ export default function LeafletEngine({
 
   return (
     <div className={cn(
-      "overflow-hidden relative z-0 w-full h-full",
+      "overflow-hidden relative z-0 w-full h-full group",
       className
     )}>
+      {/* Map Style Switcher */}
+      <div className="absolute top-4 right-14 z-[1000] flex flex-col gap-2">
+        <div className="bg-white/90 backdrop-blur-md rounded-xl shadow-lg border border-stone-200 p-1 flex flex-col gap-1 overflow-hidden transition-all duration-300 hover:shadow-xl">
+          {(Object.entries(MAP_STYLES) as [MapStyleKey, typeof MAP_STYLES.light][]).map(([key, style]) => {
+            const Icon = style.icon;
+            const isActive = mapStyle === key;
+            return (
+              <button
+                key={key}
+                onClick={() => setMapStyle(key)}
+                className={cn(
+                  "p-2 rounded-lg transition-all flex items-center gap-2 text-xs font-semibold group/btn",
+                  isActive 
+                    ? "bg-stone-900 text-white shadow-inner" 
+                    : "text-stone-600 hover:bg-stone-100 hover:text-stone-900"
+                )}
+                title={style.name}
+              >
+                <Icon className={cn("w-4 h-4", isActive ? "text-amber-400" : "text-stone-400 group-hover/btn:text-stone-600")} />
+                <span className={cn("hidden lg:block", isActive ? "opacity-100" : "opacity-60")}>{style.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <MapContainer
         center={[center.lat, center.lng]}
         zoom={zoom}
@@ -183,7 +240,7 @@ export default function LeafletEngine({
             onMapReady?.();
           }
         }} />
-        <TileLayer url={TILE_LAYER_URL} attribution={ATTRIBUTION} />
+        <TileLayer url={MAP_STYLES[mapStyle].url} attribution={MAP_STYLES[mapStyle].attribution} />
         <ZoomControl position="topright" />
 
 
