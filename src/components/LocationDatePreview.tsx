@@ -34,7 +34,7 @@ export default function LocationDatePreview({
   return (
     <div className="space-y-3">
       {showAutoDetectedInfo && (
-        <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-4">
+        <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50/60 backdrop-blur-sm p-4 shadow-sm">
           <div className="flex items-center gap-2">
             <Calendar size={16} className="text-blue-600" />
             <p className="text-sm font-medium text-blue-900">
@@ -46,7 +46,7 @@ export default function LocationDatePreview({
               </span>
             </p>
           </div>
-          <p className="mt-1 text-xs text-blue-700">
+          <p className="mt-1 text-xs text-blue-700 font-medium">
             {dateAnalysis?.dateCount} of {dateAnalysis?.dateCount} photos have date metadata
           </p>
         </div>
@@ -59,7 +59,7 @@ export default function LocationDatePreview({
           </label>
           <input
             type="date"
-            className="w-full bg-stone-50 border-stone-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-stone-400 transition-all"
+            className="w-full bg-white/60 backdrop-blur-sm border-stone-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-stone-400 transition-all shadow-sm"
             value={startDate}
             onChange={(e) => handleStartDateChange(e.target.value)}
           />
@@ -70,7 +70,7 @@ export default function LocationDatePreview({
           </label>
           <input
             type="date"
-            className="w-full bg-stone-50 border-stone-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-stone-400 transition-all"
+            className="w-full bg-white/60 backdrop-blur-sm border-stone-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-stone-400 transition-all shadow-sm"
             value={endDate}
             onChange={(e) => handleEndDateChange(e.target.value)}
           />
@@ -78,9 +78,9 @@ export default function LocationDatePreview({
       </div>
 
       {!!startDate && !!endDate && (
-        <div className="rounded-lg bg-stone-100 p-3">
-          <p className="text-sm text-stone-600">
-            Trip duration: <span className="font-medium">{calculateDuration(startDate, endDate)}</span>
+        <div className="rounded-lg bg-white/40 backdrop-blur-sm p-3 border border-stone-100 shadow-sm">
+          <p className="text-sm text-stone-600 font-medium">
+            Trip duration: <span className="font-bold text-stone-900">{calculateDuration(startDate, endDate)}</span>
           </p>
         </div>
       )}

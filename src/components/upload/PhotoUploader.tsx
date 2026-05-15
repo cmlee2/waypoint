@@ -450,11 +450,11 @@ export default function PhotoUploader({
         className={`
           border-2 border-dashed rounded-3xl p-12 transition-all cursor-pointer
           flex flex-col items-center justify-center text-center space-y-4
-          ${isDragActive ? 'border-stone-400 bg-stone-100' : 'border-stone-200 bg-white hover:border-stone-300'}
+          ${isDragActive ? 'border-stone-400 bg-white/40' : 'border-stone-200 bg-[#f5f2eb]/60 hover:border-stone-300 hover:bg-white/40'}
         `}
       >
         <input {...getInputProps()} />
-        <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center text-stone-400">
+        <div className="w-16 h-16 bg-white/40 rounded-full flex items-center justify-center text-stone-400">
           <Camera size={32} />
         </div>
         <div>
@@ -467,7 +467,7 @@ export default function PhotoUploader({
             event.stopPropagation();
             open();
           }}
-          className="rounded-full border border-stone-300 bg-white px-5 py-2 text-sm font-medium text-stone-700 transition-colors hover:border-stone-400 hover:bg-stone-50"
+          className="rounded-full border border-stone-300 bg-white/80 backdrop-blur-sm px-5 py-2 text-sm font-medium text-stone-700 transition-colors hover:border-stone-400 hover:bg-white shadow-sm"
         >
           Browse Photos
         </button>
@@ -485,7 +485,7 @@ export default function PhotoUploader({
         type="button"
         onClick={handleGoogleAuth}
         disabled={isImportingFromGoogle}
-        className="w-full rounded-2xl border-2 border-stone-200 bg-white p-6 transition-all hover:border-stone-300 hover:bg-stone-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+        className="w-full rounded-2xl border-2 border-stone-200 bg-white/40 backdrop-blur-sm p-6 transition-all hover:border-stone-300 hover:bg-white/60 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
       >
         {isImportingFromGoogle ? (
           <>
@@ -504,7 +504,7 @@ export default function PhotoUploader({
       {photos.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {photos.map((photo, index) => (
-            <div key={index} className="bg-white rounded-2xl border border-stone-200 overflow-hidden flex shadow-sm group">
+            <div key={index} className="bg-white/80 backdrop-blur-sm rounded-2xl border border-stone-200 overflow-hidden flex shadow-sm group">
               {/* Image Preview */}
               <div className="w-1/3 relative aspect-square bg-stone-100">
                 <img
@@ -531,11 +531,11 @@ export default function PhotoUploader({
                         <span className="flex items-center gap-1">
                           <MapPin size={12} className={hasCoordinates(photo) ? 'text-green-500' : 'text-stone-300'} />
                           {hasCoordinates(photo) ? (
-                            <span className="text-stone-600">
+                            <span className="text-stone-600 truncate max-w-[120px]">
                               {photo.locationName || `${photo.lat?.toFixed(4)}, ${photo.lng?.toFixed(4)}`}
                             </span>
                           ) : (
-                            <span className="text-amber-600" title="No GPS data found in photo - you may need to export from Photos app with location info preserved">
+                            <span className="text-amber-600" title="No GPS data found in photo">
                               No GPS Data
                             </span>
                           )}
@@ -544,9 +544,9 @@ export default function PhotoUploader({
                       <button
                         type="button"
                         onClick={() => setLocationPickerIndex(index)}
-                        className="text-xs text-blue-600 hover:text-blue-700"
+                        className="text-xs text-blue-600 hover:text-blue-700 font-bold uppercase tracking-tight"
                       >
-                        {hasCoordinates(photo) ? 'Edit' : 'Add Location'}
+                        {hasCoordinates(photo) ? 'Edit' : 'Add'}
                       </button>
                     </div>
                   </div>
@@ -562,7 +562,7 @@ export default function PhotoUploader({
                     placeholder="Add a caption..."
                     value={photo.caption}
                     onChange={(e) => updateCaption(index, e.target.value)}
-                    className="w-full text-sm border-none focus:ring-0 p-0 resize-none text-stone-700 placeholder:text-stone-300 h-12"
+                    className="w-full text-sm border-none focus:ring-0 p-0 resize-none text-stone-700 placeholder:text-stone-300 h-12 bg-transparent"
                     disabled={isProcessing}
                   />
                 </div>
@@ -578,7 +578,7 @@ export default function PhotoUploader({
           <button
             type="button"
             onClick={open}
-            className="rounded-full border border-stone-300 bg-white px-8 py-3 text-sm font-medium text-stone-700 transition-colors hover:border-stone-400 hover:bg-stone-50 shadow-sm"
+            className="rounded-full border border-stone-300 bg-white/80 backdrop-blur-sm px-8 py-3 text-sm font-medium text-stone-700 transition-colors hover:border-stone-400 hover:bg-white shadow-sm active:scale-95"
           >
             Add More Photos
           </button>

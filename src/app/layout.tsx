@@ -23,7 +23,7 @@ export default function RootLayout({
                 <div className="w-10 h-10 bg-stone-900 rounded-xl flex items-center justify-center text-white shadow-lg group-hover:bg-amber-700 transition-colors">
                   <Compass className="w-6 h-6" />
                 </div>
-                <h1 className="text-2xl font-bold tracking-tight text-stone-900 handwritten">Waypoint</h1>
+                <h1 className="text-2xl font-bold tracking-tight text-stone-900">Waypoint</h1>
               </a>
               <nav className="flex items-center gap-6">
                 <Show when="signed-out">

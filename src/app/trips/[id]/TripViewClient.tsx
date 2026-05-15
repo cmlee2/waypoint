@@ -188,11 +188,11 @@ export default function TripViewClient({ trip: initialTrip, isMine }: { trip: an
   };
 
   return (
-    <div className="flex flex-col md:flex-row w-full h-[calc(100vh-4rem)] overflow-hidden bg-white">
+    <div className="flex flex-col md:flex-row w-full h-[calc(100vh-4rem)] overflow-hidden bg-[#f5f2eb]">
       {/* Sidebar: Trip Info & Timeline */}
-      <aside className="w-full md:w-96 lg:w-[400px] border-r border-stone-200 flex flex-col z-10 h-[50vh] md:h-full overflow-hidden bg-white shrink-0">
+      <aside className="w-full md:w-96 lg:w-[400px] border-r border-stone-200 flex flex-col z-10 h-[50vh] md:h-full overflow-hidden bg-[#f5f2eb] shrink-0 shadow-xl md:shadow-none">
         {/* Header */}
-        <div className="p-6 border-b border-stone-100 flex-shrink-0">
+        <div className="p-6 border-b border-stone-100 flex-shrink-0 bg-[#f5f2eb]">
           <button
             onClick={() => router.push('/')}
             className="flex items-center gap-2 text-stone-500 hover:text-stone-900 transition-colors mb-4 group"
@@ -267,7 +267,7 @@ export default function TripViewClient({ trip: initialTrip, isMine }: { trip: an
                   <>
                     <button
                       onClick={startEditing}
-                      className="flex-1 flex items-center justify-center gap-2 h-10 bg-white text-stone-900 border-2 border-stone-900 text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-stone-50 active:scale-95 transition-all"
+                      className="flex-1 flex items-center justify-center gap-2 h-10 bg-white/60 backdrop-blur-sm text-stone-900 border-2 border-stone-900 text-[10px] font-bold uppercase tracking-widest rounded-xl hover:bg-white active:scale-95 transition-all shadow-sm"
                     >
                       <Edit3 size={14} /> Edit Trip
                     </button>
@@ -276,7 +276,7 @@ export default function TripViewClient({ trip: initialTrip, isMine }: { trip: an
                       disabled={isUpdating}
                       className={`flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl transition-all border-2 ${
                         isPublic 
-                          ? 'bg-stone-50 text-stone-500 border-stone-200 hover:bg-stone-100' 
+                          ? 'bg-white/40 backdrop-blur-sm text-stone-500 border-stone-200 hover:bg-white/60' 
                           : 'bg-stone-900 text-white border-stone-900 hover:bg-stone-800 shadow-md'
                       }`}
                       title={isPublic ? 'Make Private' : 'Make Public'}
@@ -291,7 +291,7 @@ export default function TripViewClient({ trip: initialTrip, isMine }: { trip: an
                   disabled={!isPublic && !isMine}
                   className={`flex-1 flex items-center justify-center gap-2 h-10 font-bold uppercase tracking-widest rounded-xl transition-all text-[10px] border-2 ${
                     isPublic 
-                      ? 'bg-white text-stone-900 border-stone-900 hover:bg-stone-50 shadow-sm' 
+                      ? 'bg-white/60 backdrop-blur-sm text-stone-900 border-stone-900 hover:bg-white shadow-sm' 
                       : 'bg-stone-50 text-stone-300 border-dashed border-stone-200 cursor-not-allowed'
                   }`}
                 >
@@ -309,9 +309,9 @@ export default function TripViewClient({ trip: initialTrip, isMine }: { trip: an
         </div>
 
         {/* Timeline */}
-        <div className="p-6 space-y-8 flex-1 overflow-y-auto min-h-0 bg-stone-50/30 custom-scrollbar">
+        <div className="p-6 space-y-8 flex-1 overflow-y-auto min-h-0 bg-[#f5f2eb] custom-scrollbar">
           {trip.photos.length === 0 && !isEditing ? (
-            <div className="text-center p-8 bg-stone-50 rounded-2xl border-2 border-dashed border-stone-200">
+            <div className="text-center p-8 bg-white/40 backdrop-blur-sm rounded-2xl border-2 border-dashed border-stone-200">
               <p className="text-stone-500">No memories yet.</p>
             </div>
           ) : (
@@ -335,8 +335,8 @@ export default function TripViewClient({ trip: initialTrip, isMine }: { trip: an
                       
                       {/* Photo Card */}
                       <div className={`
-                        bg-white rounded-2xl border overflow-hidden transition-all shadow-sm hover:shadow-md
-                        ${isSelected ? 'border-stone-400 ring-2 ring-stone-100' : 'border-stone-200'}
+                        bg-white/80 backdrop-blur-sm rounded-2xl border overflow-hidden transition-all shadow-sm hover:shadow-md
+                        ${isSelected ? 'border-stone-400 ring-2 ring-stone-100 transform scale-[1.02]' : 'border-stone-200'}
                       `}>
                         <div className="aspect-[4/3] bg-stone-100 relative group/photo">
                           <img 
@@ -371,7 +371,7 @@ export default function TripViewClient({ trip: initialTrip, isMine }: { trip: an
                             <textarea
                               value={photoCaptions[photo.id] || ''}
                               onChange={(e) => setPhotoCaptions(prev => ({ ...prev, [photo.id]: e.target.value }))}
-                              className="w-full text-sm text-stone-700 leading-relaxed border-stone-200 rounded-lg focus:ring-stone-400 focus:border-stone-400 p-2 bg-stone-50 resize-none h-20"
+                              className="w-full text-sm text-stone-700 leading-relaxed border-stone-200 rounded-lg focus:ring-stone-400 focus:border-stone-400 p-2 bg-white/50 resize-none h-20"
                               placeholder="Add a caption..."
                             />
                           ) : (
@@ -390,7 +390,7 @@ export default function TripViewClient({ trip: initialTrip, isMine }: { trip: an
                   {/* Timeline Node */}
                   <div className="absolute -left-[9px] top-4 w-4 h-4 rounded-full border-2 bg-white border-stone-300 border-dashed" />
                   
-                  <div className="bg-white rounded-2xl border-2 border-dashed border-stone-200 p-6 space-y-4">
+                  <div className="bg-white/60 backdrop-blur-sm rounded-2xl border-2 border-dashed border-stone-200 p-6 space-y-4 shadow-sm">
                     <div className="flex items-center gap-3 text-stone-900">
                       <PlusCircle size={20} />
                       <h3 className="font-bold">Add New Memories</h3>
@@ -409,7 +409,7 @@ export default function TripViewClient({ trip: initialTrip, isMine }: { trip: an
       </aside>
 
       {/* Main Content: Map */}
-      <main className="flex-1 relative bg-white h-[50vh] md:h-full overflow-hidden order-first md:order-none min-h-0">
+      <main className="flex-1 relative bg-[#f5f2eb] h-[50vh] md:h-full overflow-hidden order-first md:order-none min-h-0">
         {mounted && (
           <MapDisplay
             provider="leaflet"

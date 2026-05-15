@@ -38,7 +38,7 @@ export default function AuthPopup() {
             <div className="mx-auto flex h-20 w-20 items-center justify-center bg-stone-900 rounded-2xl shadow-xl transform -rotate-3">
               <Compass className="h-10 w-10 text-amber-400" />
             </div>
-            <h2 className="text-3xl font-bold text-stone-900 handwritten">Welcome to Waypoint</h2>
+            <h2 className="text-3xl font-bold text-stone-900">Welcome to Waypoint</h2>
             <p className="text-stone-700 font-medium">
               Transform your travel photos into interactive scrapbook maps. Sign in to start preserving your journey.
             </p>

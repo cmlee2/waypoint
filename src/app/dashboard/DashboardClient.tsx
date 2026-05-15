@@ -55,13 +55,13 @@ export default function DashboardClient({
   };
 
   return (
-    <div className="w-full h-[calc(100vh-4rem)] flex flex-col md:flex-row bg-white overflow-hidden">
+    <div className="w-full h-[calc(100vh-4rem)] flex flex-col md:flex-row bg-[#f5f2eb] overflow-hidden">
       {/* Sidebar: Trip List */}
       {isAuthenticated && showSidebar && (
-        <aside className="w-full md:w-80 lg:w-96 bg-white border-r border-stone-200 overflow-y-auto flex flex-col z-10 shadow-xl md:shadow-none min-h-0 shrink-0">
-          <div className="p-4 flex-1 space-y-4 bg-stone-50/30">
+        <aside className="w-full md:w-80 lg:w-96 bg-[#f5f2eb] border-r border-stone-200 overflow-y-auto flex flex-col z-10 shadow-xl md:shadow-none min-h-0 shrink-0">
+          <div className="p-4 flex-1 space-y-4 bg-[#f5f2eb]">
             {trips.length === 0 ? (
-              <div className="text-center p-8 bg-white rounded-2xl border-2 border-dashed border-stone-200 shadow-sm">
+              <div className="text-center p-8 bg-white/50 backdrop-blur-sm rounded-2xl border-2 border-dashed border-stone-200 shadow-sm">
                 <p className="text-stone-500 mb-4 font-medium">Your map is empty.</p>
                 <Link
                   href="/trips/new"
@@ -80,7 +80,7 @@ export default function DashboardClient({
                     onMouseLeave={() => setHoveredTripId(null)}
                     className={`
                       group p-4 rounded-2xl transition-all cursor-pointer flex gap-4 items-center border-2
-                      ${hoveredTripId === trip.id ? 'bg-white shadow-lg border-stone-300 transform scale-[1.02]' : 'bg-white border-stone-100 hover:border-stone-200 hover:shadow-md'}
+                      ${hoveredTripId === trip.id ? 'bg-white shadow-lg border-stone-300 transform scale-[1.02]' : 'bg-white/60 backdrop-blur-sm border-stone-100 hover:border-stone-200 hover:shadow-md'}
                     `}
                   >
                     <div className="w-20 h-20 rounded-xl bg-stone-100 overflow-hidden flex-shrink-0 border border-stone-200 shadow-sm">
@@ -108,7 +108,7 @@ export default function DashboardClient({
       )}
 
       {/* Main Content: Map */}
-      <main className="flex-1 relative bg-white h-[50vh] md:h-full overflow-hidden min-h-0">
+      <main className="flex-1 relative bg-[#f5f2eb] h-[50vh] md:h-full overflow-hidden min-h-0">
         {isAuthenticated && (
           <button
             type="button"

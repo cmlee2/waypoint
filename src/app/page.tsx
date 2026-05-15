@@ -111,22 +111,22 @@ export default async function HomePage() {
   const initialZoom = centeringResult.zoom;
 
   return (
-    <div className="flex-1 flex flex-col h-[calc(100vh-4rem)]">
+    <div className="flex-1 flex flex-col h-[calc(100vh-4rem)] bg-[#f5f2eb]">
       {/* Dashboard Header/Actions */}
-      <div className="bg-white border-b border-stone-200 px-6 py-4 flex items-center justify-between z-20">
+      <div className="bg-[#f5f2eb] border-b border-stone-200 px-6 py-4 flex items-center justify-between z-20">
         <h1 className="text-2xl font-bold text-stone-900 tracking-tight">
           {userId ? 'Your Atlas' : 'Shared Atlas'}
         </h1>
         {userId ? (
           <Link
             href="/trips/new"
-            className="flex items-center gap-2 bg-stone-900 text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-stone-800 transition-colors shadow-sm"
+            className="flex items-center gap-2 bg-stone-900 text-white px-5 py-2.5 rounded-full text-sm font-bold uppercase tracking-widest hover:bg-stone-800 transition-all shadow-md active:scale-95"
           >
             <Plus size={16} />
             <span className="hidden sm:inline">Add Trip</span>
           </Link>
         ) : (
-          <div className="text-sm text-stone-500">
+          <div className="text-sm text-stone-500 font-medium">
             Explore public trips or sign in to create your own.
           </div>
         )}

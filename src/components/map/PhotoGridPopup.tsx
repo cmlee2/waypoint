@@ -118,7 +118,10 @@ export default function PhotoGridPopup({ marker, onSeeDetails, onPhotoClick }: P
   };
 
   return (
-    <div className="bg-white p-3 pb-8 shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-stone-200 min-w-[280px] max-w-[300px] flex flex-col">
+    <div className="bg-[#fefcf9] p-3 pb-8 shadow-[0_20px_50px_rgba(0,0,0,0.25)] border border-stone-200 min-w-[280px] max-w-[300px] flex flex-col relative overflow-hidden">
+      {/* Subtle inner paper texture */}
+      <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/paper-fibers.png")' }}></div>
+
       {/* Polaroid Image Area */}
       <div 
         className="aspect-square mb-6 bg-stone-100 overflow-hidden shadow-inner cursor-pointer group/grid relative border border-stone-100"
