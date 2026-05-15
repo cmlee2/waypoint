@@ -6,7 +6,8 @@ import { MapMarker } from '@/types/map';
 import { ArrowLeft, Calendar, Globe, Lock, Share2, Edit3, Save, Trash2, PlusCircle, Loader2, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { calculateSmartCentering } from '@/utils/map/smartCentering';
-import PhotoUploader, { PhotoPreview } from '@/components/upload/PhotoUploader';
+import PhotoUploader from '@/components/upload/PhotoUploader';
+import type { PhotoPreview } from '@/components/upload/PhotoUploader';
 
 export default function TripViewClient({ trip: initialTrip, isMine }: { trip: any, isMine: boolean }) {
   const router = useRouter();

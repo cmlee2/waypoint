@@ -11,7 +11,7 @@ import { compressImage, formatFileSize } from '@/utils/imageCompression';
 import { GooglePhoto, createGooglePhotosClient } from '@/utils/google/photos';
 import { reverseGeocode, type PlaceInfo } from '@/utils/places/nominatim';
 
-interface PhotoPreview {
+export interface PhotoPreview {
   file: File;
   preview: string;
   lat?: number;
