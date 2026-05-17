@@ -103,7 +103,7 @@ export default function LeafletEngine({
 }: TripMapProps) {
   const [L, setL] = useState<any>(null);
   const [mapInstance, setMapInstance] = useState<any>(null);
-  const [mapStyle, setMapStyle] = useState<MapStyleKey>('light');
+  const [mapStyle, setMapStyle] = useState<MapStyleKey>('streets');
 
   useEffect(() => {
     import('leaflet').then(mod => {
