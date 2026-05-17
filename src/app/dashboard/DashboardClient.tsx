@@ -39,6 +39,16 @@ export default function DashboardClient({
   const [isDrawerExpanded, setIsDrawerExpanded] = useState(false);
   const [mapKey, setMapKey] = useState(0); 
   const [mounted, setMounted] = useState(false);
+  const [mapStyle, setMapStyle] = useState<'light' | 'dark' | 'streets' | 'outdoor'>('light');
+
+  // Sync website theme with map style
+  useEffect(() => {
+    if (mapStyle === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [mapStyle]);
 
   useEffect(() => {
     setMounted(true);
@@ -62,26 +72,26 @@ export default function DashboardClient({
   };
 
   return (
-    <div className="w-full h-[calc(100vh-4rem)] flex flex-col md:flex-row bg-[#f5f2eb] overflow-hidden relative">
+    <div className="w-full h-[calc(100vh-4rem)] flex flex-col md:flex-row bg-[var(--background)] overflow-hidden relative transition-colors duration-500">
       {/* Desktop Sidebar: Trip List */}
       {isAuthenticated && (
         <aside className={`
-          hidden md:flex w-80 lg:w-96 bg-[#f5f2eb] border-r border-stone-200 overflow-y-auto flex-col z-10 min-h-0 shrink-0 transition-all duration-300
+          hidden md:flex w-80 lg:w-96 bg-[var(--background)] border-r border-stone-200 dark:border-stone-700 overflow-y-auto flex-col z-10 min-h-0 shrink-0 transition-all duration-500
           ${showSidebar ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 absolute'}
         `}>
-          <div className="p-4 flex-1 space-y-4 bg-[#f5f2eb]">
+          <div className="p-4 flex-1 space-y-4 bg-[var(--background)] transition-colors duration-500">
             <TripList trips={trips} hoveredTripId={hoveredTripId} setHoveredTripId={setHoveredTripId} router={router} />
           </div>
         </aside>
       )}
 
       {/* Main Content: Map */}
-      <main className="flex-1 relative bg-[#f5f2eb] h-full overflow-hidden min-h-0">
+      <main className="flex-1 relative bg-[var(--background)] h-full overflow-hidden min-h-0 transition-colors duration-500">
         {isAuthenticated && (
           <button
             type="button"
             onClick={handleSidebarToggle}
-            className="hidden md:flex absolute top-4 left-4 z-[1000] rounded-full bg-white/90 backdrop-blur-sm px-5 py-2.5 text-sm font-bold text-stone-900 shadow-xl border border-stone-200 hover:bg-white transition-all active:scale-95 items-center gap-2"
+            className="hidden md:flex absolute top-4 left-4 z-[1000] rounded-full bg-white/90 dark:bg-stone-800/90 backdrop-blur-sm px-5 py-2.5 text-sm font-bold text-stone-900 dark:text-stone-100 shadow-xl border border-stone-200 dark:border-stone-700 hover:bg-white dark:hover:bg-stone-800 transition-all active:scale-95 items-center gap-2"
           >
             <MapIcon size={16} />
             {showSidebar ? 'Hide Trips' : 'Show Trips'}
@@ -118,14 +128,14 @@ export default function DashboardClient({
             />
           )}
 
-          <div className="h-full bg-[#f5f2eb] rounded-t-[32px] shadow-[0_-10px_40px_rgba(0,0,0,0.15)] border-t border-stone-200 flex flex-col overflow-hidden">
+          <div className="h-full bg-[var(--background)] rounded-t-[32px] shadow-[0_-10px_40px_rgba(0,0,0,0.15)] border-t border-stone-200 dark:border-stone-700 flex flex-col overflow-hidden transition-colors duration-500">
             {/* Drawer Handle */}
             <div 
-              className="w-full py-4 flex flex-col items-center justify-center cursor-pointer active:bg-stone-100/50 transition-colors shrink-0"
+              className="w-full py-6 flex flex-col items-center justify-center cursor-pointer active:bg-stone-100/50 dark:active:bg-stone-800/50 transition-colors shrink-0"
               onClick={toggleDrawer}
             >
-              <div className="w-12 h-1.5 bg-stone-300 rounded-full mb-2" />
-              <div className="flex items-center gap-2 text-stone-900 font-bold uppercase tracking-widest text-xs">
+              <div className="w-12 h-1.5 bg-stone-300 dark:bg-stone-600 rounded-full mb-2" />
+              <div className="flex items-center gap-2 text-stone-900 dark:text-stone-100 font-bold uppercase tracking-widest text-xs">
                 {isDrawerExpanded ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
                 {isDrawerExpanded ? 'Close Map Menu' : `View ${trips.length} Trips`}
               </div>
@@ -150,11 +160,11 @@ function TripList({ trips, hoveredTripId, setHoveredTripId, router }: {
 }) {
   if (trips.length === 0) {
     return (
-      <div className="text-center p-8 bg-white/50 backdrop-blur-sm rounded-2xl border-2 border-dashed border-stone-200 shadow-sm mt-4">
-        <p className="text-stone-500 mb-4 font-medium">Your map is empty.</p>
+      <div className="text-center p-8 bg-white/50 dark:bg-stone-800/50 backdrop-blur-sm rounded-2xl border-2 border-dashed border-stone-200 dark:border-stone-700 shadow-sm mt-4 transition-colors">
+        <p className="text-stone-500 dark:text-stone-400 mb-4 font-medium">Your map is empty.</p>
         <Link
           href="/trips/new"
-          className="inline-block px-6 py-2.5 bg-stone-900 text-white font-semibold rounded-full text-sm hover:bg-stone-800 transition-all shadow-md hover:shadow-lg"
+          className="inline-block px-6 py-2.5 bg-stone-900 dark:bg-stone-700 text-white font-semibold rounded-full text-sm hover:bg-stone-800 dark:hover:bg-stone-600 transition-all shadow-md hover:shadow-lg"
         >
           Add First Trip
         </Link>
@@ -171,23 +181,25 @@ function TripList({ trips, hoveredTripId, setHoveredTripId, router }: {
           onMouseEnter={() => setHoveredTripId(trip.id)}
           onMouseLeave={() => setHoveredTripId(null)}
           className={`
-            group p-4 rounded-2xl transition-all cursor-pointer flex gap-4 items-center border-2
-            ${hoveredTripId === trip.id ? 'bg-white shadow-lg border-stone-300 transform scale-[1.02]' : 'bg-white/60 backdrop-blur-sm border-stone-100 hover:border-stone-200 hover:shadow-md'}
+            group p-4 rounded-2xl transition-all cursor-pointer flex gap-4 items-center border-2 transition-all duration-300
+            ${hoveredTripId === trip.id 
+              ? 'bg-white dark:bg-stone-700 shadow-lg border-stone-300 dark:border-stone-500 transform scale-[1.02]' 
+              : 'bg-white/60 dark:bg-stone-800/60 backdrop-blur-sm border-stone-100 dark:border-stone-800 hover:border-stone-200 dark:hover:border-stone-700 hover:shadow-md'}
           `}
         >
-          <div className="w-20 h-20 rounded-xl bg-stone-100 overflow-hidden flex-shrink-0 border border-stone-200 shadow-sm">
+          <div className="w-20 h-20 rounded-xl bg-stone-100 dark:bg-stone-900 overflow-hidden flex-shrink-0 border border-stone-200 dark:border-stone-700 shadow-sm transition-colors">
             {trip.coverPhoto ? (
               <img src={trip.coverPhoto} alt={trip.name} className="w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-stone-400 text-xs font-bold uppercase tracking-wider">
+              <div className="w-full h-full flex items-center justify-center text-stone-400 dark:text-stone-600 text-xs font-bold uppercase tracking-wider">
                 Map
               </div>
             )}
           </div>
           <div className="flex-1 min-w-0 text-left">
-            <h3 className="font-bold text-stone-900 truncate text-lg">{trip.name}</h3>
-            <p className="text-xs text-stone-500 mt-1.5 flex items-center gap-2">
-              {!trip.isMine && <span className="bg-stone-100 text-stone-800 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider text-[10px] border border-stone-200">Shared</span>}
+            <h3 className="font-bold text-stone-900 dark:text-stone-100 truncate text-lg transition-colors">{trip.name}</h3>
+            <p className="text-xs text-stone-500 dark:text-stone-400 mt-1.5 flex items-center gap-2 transition-colors">
+              {!trip.isMine && <span className="bg-stone-100 dark:bg-stone-800 text-stone-800 dark:text-stone-200 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider text-[10px] border border-stone-200 dark:border-stone-700">Shared</span>}
               <span className="font-medium">{trip.photoCount} memories</span>
             </p>
           </div>

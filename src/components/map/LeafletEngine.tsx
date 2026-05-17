@@ -103,7 +103,16 @@ export default function LeafletEngine({
 }: TripMapProps) {
   const [L, setL] = useState<any>(null);
   const [mapInstance, setMapInstance] = useState<any>(null);
-  const [mapStyle, setMapStyle] = useState<MapStyleKey>('streets');
+  const [mapStyle, setMapStyle] = useState<MapStyleKey>('light');
+
+  // Sync website theme with map style
+  useEffect(() => {
+    if (mapStyle === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [mapStyle]);
 
   useEffect(() => {
     import('leaflet').then(mod => {
